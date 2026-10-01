@@ -1,5 +1,6 @@
 // RU / UA UI localization. Domain IDs, prices and user-entered values remain stable.
 const languagePairs = `
+В этой подборке пока нет объектов — выберите другую|У цій добірці поки немає об’єктів — виберіть іншу
 Направления|Напрями
 Фотографии объекта|Фотографії об’єкта
 фото|фото

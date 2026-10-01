@@ -85,20 +85,16 @@ document.addEventListener('click', event => {
 })
 syncFilterMenus()
 let activeGoal = 'all'
-let activeTag = 'all'
 let activeDeveloper = 'all'
 let visibleCount = 5
 
 function updateCatalog(scroll = false) {
   syncFilterMenus()
   $$('[data-goal]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.goal === activeGoal)))
-  $$('[data-category]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.category === activeTag)))
   const matches = cards.filter(card => {
-    const tags = card.dataset.tags.split(' ')
     const amount = Number(card.dataset.price) || null
     const priceMatch = price.value === 'all' || (price.value === 'request' ? amount === null : amount !== null && (price.value === 'above' ? amount >= 200000 : amount <= Number(price.value)))
     return priceMatch && (activeGoal === 'all' || (card.dataset.goals || '').split(' ').includes(activeGoal)) &&
-      (activeTag === 'all' || tags.includes(activeTag)) &&
       (activeDeveloper === 'all' || card.dataset.developer === activeDeveloper) &&
       (district.value === 'all' || card.dataset.district === district.value) &&
       (type.value === 'all' || card.dataset.type === type.value) &&
@@ -112,7 +108,7 @@ function updateCatalog(scroll = false) {
 }
 function resetCatalog() {
   district.value = type.value = area.value = rooms.value = price.value = 'all'
-  activeTag = activeDeveloper = activeGoal = 'all'
+  activeDeveloper = activeGoal = 'all'
   visibleCount = 5
   updateCatalog()
 }
@@ -137,9 +133,9 @@ function routeToContact(interest) {
 $('#reset-filters').addEventListener('click', resetCatalog)
 more.addEventListener('click', () => { visibleCount += 5; updateCatalog() })
 $$('[data-category]').forEach(button => button.addEventListener('click', () => {
-  activeTag = button.dataset.category
-  visibleCount = 5
-  updateCatalog(true)
+  activeTopCategory = button.dataset.category
+  renderTopCards()
+  document.dispatchEvent(new CustomEvent('delmar:top-changed'))
 }))
 $$('[data-route]').forEach(button => button.addEventListener('click', () => {
   if (button.dataset.route === 'sell') routeToContact('Продажа квартиры')
@@ -163,6 +159,7 @@ $$('[data-footer-type]').forEach(link => link.addEventListener('click', event =>
   else routeToCatalog(link.dataset.footerType)
 }))
 updateCatalog()
+renderTopCards()
 
 const quiz = $('#quiz-dialog')
 let quizStep = 1

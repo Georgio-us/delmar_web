@@ -12,6 +12,7 @@ const defaultEditorial = {
 const seededProperties = propertyInventory.map(property=>({...property,...Object.fromEntries(['district','developer','tags','goals'].map(key=>[key,seedMetadata.get(property.id)?.[key]||''])),kind:seedMetadata.get(property.id)?.type||'resale'}))
 let contentState={version:1,properties:seededProperties,editorial:structuredClone(defaultEditorial)}
 let contentRevision=0
+let activeTopCategory='all'
 async function contentRequest(path,options={}){
   const response=await fetch(path,{credentials:'same-origin',...options,headers:{'Content-Type':'application/json','X-Delmar-Editor':'1',...options.headers},signal:AbortSignal.timeout(15000)})
   if(response.status===304)return null
@@ -57,16 +58,24 @@ function renderContentCards(){
     card.querySelector('p').textContent=`${p.area} м² · ${p.rooms} комнаты`
     grid.append(card)
   }
+  renderTopCards()
+}
+function renderTopCards(){
   const top=document.querySelector('.top-grid');top.replaceChildren()
-  contentState.editorial.top.forEach((id,index)=>{
-    const p=propertyInventory.find(p=>p.id===id);if(!p)return
+  const editorial=contentState.editorial.top.map(id=>propertyInventory.find(p=>p.id===id)).filter(Boolean)
+  // Editorial choices lead each collection; fill the remaining places from matching inventory.
+  const ordered=[...editorial,...propertyInventory.filter(p=>!editorial.some(item=>item.id===p.id))]
+  const selected=activeTopCategory==='all'?editorial:ordered.filter(p=>p.tags.split(' ').includes(activeTopCategory)).slice(0,3)
+  selected.forEach((p,index)=>{
     const card=topTemplate.cloneNode(true);card.querySelector('img').src=p.photos[0];card.querySelector('img').alt=p.title
     card.querySelector('.top-rank').textContent=String(index+1).padStart(2,'0')
     card.querySelector('.property-open').textContent=p.title;card.querySelector('.property-open').dataset.openProperty=p.id
     card.querySelector('p').textContent=`${p.location} · ${p.area} м² · ${p.rooms} комнаты`
     card.querySelector('b').textContent='$'+new Intl.NumberFormat('ru-RU').format(p.price);top.append(card)
   })
-  document.querySelector('#top-properties').hidden=!top.children.length
+  document.querySelector('#top-properties').hidden=activeTopCategory==='all'&&!top.children.length
+  document.querySelector('#top-empty').hidden=selected.length>0
+  document.querySelectorAll('[data-category]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.category===activeTopCategory)))
 }
 
 ContentRepository.ready=ContentRepository.connect()

@@ -162,3 +162,5 @@ document.querySelector('#editor-entry').addEventListener('click',()=>{setMenuOpe
 editorToolbar.querySelectorAll('[data-editor-view]').forEach(button=>button.addEventListener('click',()=>showEditorView(button.dataset.editorView)))
 document.querySelector('#editor-logout').addEventListener('click',async()=>{try{await EditorSession.signOut();editorActive=false;if(editorRoot.open)editorRoot.close();syncEditorUI()}catch(error){editorOpen('Выход из редактора');editorNotice(error.message)}})
 syncEditorUI()
+
+document.addEventListener('delmar:top-changed',syncEditorUI)
