@@ -1,0 +1,31 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),{randomBytes}=require('node:crypto'),fs=require('node:fs')
+const {createApp}=require('../server/app.cjs'),{EditorAuth}=require('../server/auth.cjs'),{MemoryRepository}=require('./memory-repository.cjs'),{MemoryMedia}=require('./memory-media.cjs'),{validateContent}=require('../content-validation.js'),{R2Media,validateUpload}=require('../server/media.cjs')
+const seed={version:1,properties:require('../server/seed-properties.json'),editorial:require('../server/seed-editorial.cjs'),trash:[]}
+test('authenticated photo/PDF upload, shared references and public retrieval',async t=>{
+ const repository=new MemoryRepository(seed),media=new MemoryMedia(),password=randomBytes(24).toString('hex'),auth=new EditorAuth(repository,{login:'test',password}),server=createApp({repository,media,auth,seed})
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(()=>new Promise(resolve=>server.close(resolve)))
+ const base='http://127.0.0.1:'+server.address().port,headers={Origin:base,'X-Delmar-Editor':'1'}
+ const png=fs.readFileSync('assets/developer-riviera.png')
+ const upload=(body,type,cookie,origin=base)=>fetch(base+'/api/editor/media',{method:'POST',headers:{...headers,Origin:origin,'Content-Type':type,...(cookie?{Cookie:cookie}:{})},body})
+ assert.equal((await upload(png,'image/png')).status,401)
+ const login=await fetch(base+'/api/login',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({login:'test',password})});const cookie=login.headers.get('set-cookie')
+ assert.equal((await upload(png,'image/png',cookie,'https://foreign.example')).status,403)
+ assert.equal((await upload(Buffer.from('<svg></svg>'),'image/svg+xml',cookie)).status,415)
+ assert.equal((await upload(Buffer.from('<script>bad</script>'),'image/png',cookie)).status,422)
+ const uploaded=await upload(png,'image/png',cookie);assert.equal(uploaded.status,201);const photo=await uploaded.json();assert.match(photo.url,/^\/media\/.*\.png$/)
+ const publicFile=await fetch(base+photo.url);assert.equal(publicFile.status,200);assert.equal(publicFile.headers.get('content-type'),'image/png');assert.deepEqual(Buffer.from(await publicFile.arrayBuffer()),png)
+ assert.equal((await fetch(base+photo.url,{method:'HEAD'})).status,200)
+ const pdf=await upload(Buffer.from('%PDF-1.7\nTest fixture'),'application/pdf',cookie);assert.equal(pdf.status,201);const pdfUrl=(await pdf.json()).url;assert.match((await fetch(base+pdfUrl)).headers.get('content-disposition'),/attachment/)
+ const state=structuredClone(seed);state.properties[0].photos.push(photo.url);state.properties[0].pdf=pdfUrl;validateContent(state)
+ const saved=await fetch(base+'/api/editor/content',{method:'PUT',headers:{...headers,Cookie:cookie,'Content-Type':'application/json'},body:JSON.stringify({revision:1,state})});assert.equal(saved.status,200)
+ const visitor=await (await fetch(base+'/api/content')).json();assert.equal(visitor.state.properties[0].pdf,pdfUrl)
+ assert.equal((await fetch(base+'/media/other-client-file.jpg')).status,404)
+})
+test('R2 uses unique immutable keys and bounded file formats',async()=>{
+ const media=new R2Media({endpoint:'https://'+'a'.repeat(32)+'.r2.cloudflarestorage.com',bucket:'delmar-web',accessKeyId:'test',secretAccessKey:'test'})
+ const calls=[];media.client.send=async command=>{calls.push(command.input);return {}}
+ await media.put('application/pdf',Buffer.from('%PDF-1.7\nFixture'));await media.check()
+ assert.match(calls[0].Key,/^delmar-media\/[\da-f-]+\.pdf$/);assert.equal(calls[0].Bucket,'delmar-web');assert.equal(calls[1].Prefix,'delmar-media/')
+ assert.throws(()=>validateUpload('image/jpeg',Buffer.alloc(11*1024*1024)),/10 МБ/)
+ assert.throws(()=>new R2Media({endpoint:'http://localhost/private',bucket:'bad'}));media.close()
+})

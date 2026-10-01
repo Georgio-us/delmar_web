@@ -1,5 +1,7 @@
 const http=require('node:http'),path=require('node:path'),fs=require('node:fs/promises')
 const {validateContent}=require('../content-validation.js')
+const {pipeline}=require('node:stream/promises')
+const {MEDIA_NAME,TYPES,validateUpload}=require('./media.cjs')
 const ROOT=path.resolve(__dirname,'..')
 const publicFiles=new Set(['index.html','site.css','refinement.css','iteration.css','direction.css','theme.css','editor.css','property-data.js','content-validation.js','content-store.js','script.js','editor.js','localization.js','app-loader.js'])
 const mime={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.pdf':'application/pdf','.ttf':'font/ttf','.txt':'text/plain; charset=utf-8'}
@@ -16,16 +18,16 @@ function sameOrigin(req,production,siteURL){
   if(req.headers['x-delmar-editor']!=='1'||!origin)return false
   try{const expected=siteURL||`${production?'https':'http'}://${req.headers.host}`;return new URL(origin).origin===new URL(expected).origin&&(!req.headers['sec-fetch-site']||['same-origin','none'].includes(req.headers['sec-fetch-site']))}catch{return false}
 }
-function createApp({repository,auth,seed,production=false,siteURL}){
+function createApp({repository,auth,seed,production=false,siteURL,media=null}){
   return http.createServer(async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');res.setHeader('X-Frame-Options','DENY')
     res.setHeader('Content-Security-Policy',"default-src 'self'; img-src 'self' data: https: http:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'")
     try{
       const pathname=new URL(req.url,'http://localhost').pathname
-      if(pathname==='/health'){if(repository)await repository.ping();return json(res,200,{status:'ok',database:Boolean(repository),editor:Boolean(auth.enabled)})}
+      if(pathname==='/health'){if(repository)await repository.ping();return json(res,200,{status:'ok',database:Boolean(repository),editor:Boolean(auth.enabled),mediaConfigured:Boolean(media),mediaReady:media?await media.check():false})}
       if(pathname.startsWith('/api/')){
         if(['POST','PUT','DELETE','PATCH'].includes(req.method)&&!sameOrigin(req,production,siteURL))return json(res,403,{error:'Запрос должен выполняться с этого сайта.'})
-        if(req.method==='GET'&&pathname==='/api/config')return json(res,200,{database:Boolean(repository),editorEnabled:auth.enabled})
+        if(req.method==='GET'&&pathname==='/api/config')return json(res,200,{database:Boolean(repository),editorEnabled:auth.enabled,mediaEnabled:Boolean(media)})
         if(req.method==='GET'&&pathname==='/api/session')return json(res,200,{authenticated:await auth.authenticated(req)})
         if(req.method==='POST'&&pathname==='/api/login'){
           const data=await readJSON(req,4096),ip=(req.headers['x-forwarded-for']||req.socket.remoteAddress||'unknown').split(',').at(-1).trim()
@@ -35,6 +37,18 @@ function createApp({repository,auth,seed,production=false,siteURL}){
         if(req.method==='GET'&&pathname==='/api/content'){
           const result=publicContent(repository?await repository.getContent():{state:seed,revision:0});const etag=`"${result.revision}"`;if(req.headers['if-none-match']===etag){res.writeHead(304,{'ETag':etag,'Cache-Control':'no-store'});return res.end()}
           res.setHeader('ETag',etag);return json(res,200,result)
+        }
+        if(req.method==='POST'&&pathname==='/api/editor/media'){
+          if(!await auth.authenticated(req))return json(res,401,{error:'Войдите в редактор для загрузки файлов.'})
+          if(!media)return json(res,503,{error:'R2 ещё не настроен. Проверьте переменные сервиса сайта.'})
+          const type=(req.headers['content-type']||'').split(';')[0]
+          if(!TYPES[type])return json(res,415,{error:'Допустимы JPG, PNG, WebP или PDF.'})
+          const max=type==='application/pdf'?20*1024*1024:10*1024*1024
+          if(Number(req.headers['content-length'])>max)return json(res,413,{error:'Файл превышает допустимый размер.'})
+          const chunks=[];let size=0
+          for await(const chunk of req){size+=chunk.length;if(size>max)throw Object.assign(new Error('Файл превышает допустимый размер.'),{status:413});chunks.push(chunk)}
+          const buffer=Buffer.concat(chunks);validateUpload(type,buffer)
+          try{return json(res,201,await media.put(type,buffer))}catch(error){console.error('R2 upload failed:',error.name);return json(res,503,{error:'Не удалось загрузить файл в R2. Проверьте ключ, права Object Read & Write и выбранный бакет.'})}
         }
         if(req.method==='GET'&&pathname==='/api/editor/content'){if(!await auth.authenticated(req))return json(res,401,{error:'Войдите в редакционный режим.'});return json(res,200,await repository.getContent())}
         if(req.method==='PUT'&&pathname==='/api/editor/content'){
@@ -47,6 +61,18 @@ function createApp({repository,auth,seed,production=false,siteURL}){
         return json(res,404,{error:'API route not found.'})
       }
       if(!['GET','HEAD'].includes(req.method))return json(res,405,{error:'Method not allowed.'})
+      if(pathname.startsWith('/media/')){
+        const name=pathname.slice(7)
+        if(!media||!MEDIA_NAME.test(name))return json(res,404,{error:'Not found.'})
+        try{
+          const file=await media.get(name,req.method==='HEAD'),type=Object.entries(TYPES).find(([,extension])=>name.endsWith('.'+extension))[0]
+          const headers={'Content-Type':type,'Cache-Control':'public, max-age=31536000, immutable','Content-Disposition':type==='application/pdf'?'attachment; filename="DELMAR-presentation.pdf"':'inline'}
+          if(file.ContentLength!==undefined)headers['Content-Length']=file.ContentLength
+          res.writeHead(200,headers)
+          if(req.method==='HEAD')return res.end()
+          return await pipeline(file.Body,res)
+        }catch(error){if(error.name==='NoSuchKey'||error.name==='NotFound'||error.status===404||error.$metadata?.httpStatusCode===404)return json(res,404,{error:'Not found.'});throw error}
+      }
       const relative=decodeURIComponent(pathname==='/'?'/index.html':pathname).slice(1)
       if(!publicFiles.has(relative)&&!/^assets\/[\w./-]+$/.test(relative))return json(res,404,{error:'Not found.'})
       if(relative.split('/').includes('..'))return json(res,404,{error:'Not found.'})

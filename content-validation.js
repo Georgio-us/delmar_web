@@ -1,6 +1,6 @@
 function safeAsset(value) {
   if (typeof value !== 'string' || !value.trim()) return false
-  return /^assets\/[\w./-]+$/.test(value) && !value.includes('..') || /^https?:\/\//i.test(value) || /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value)
+  return /^\/media\/[a-f0-9-]{36}\.(jpg|png|webp)$/.test(value) || /^assets\/[\w./-]+$/.test(value) && !value.includes('..') || /^https?:\/\//i.test(value) || /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value)
 }
 function validateContent(state) {
   if (!state || state.version!==1 || !Array.isArray(state.properties) || !state.editorial) throw new Error('Некорректный формат данных.')
@@ -14,7 +14,7 @@ function validateContent(state) {
     if(!Number.isFinite(p.price)||p.price<=0||!Number.isFinite(p.area)||p.area<=0||!Number.isInteger(p.rooms)||p.rooms<1||p.rooms>20) throw new Error('Укажите положительные цену и площадь; комнаты — от 1 до 20.')
     if(!['new','resale'].includes(p.kind)||!['primorsky','arkadia','center'].includes(p.district)) throw new Error('Выберите тип и район.')
     if(!Array.isArray(p.photos)||!p.photos.length||p.photos.length>8||p.photos.some(photo=>!safeAsset(photo))) throw new Error('Добавьте 1–8 фотографий: путь assets/, URL или загруженный файл.')
-    if(p.pdf&&!(/^assets\/[\w./-]+\.pdf$/.test(p.pdf)&&!p.pdf.includes('..')||/^https?:\/\//i.test(p.pdf))) throw new Error('Проверьте ссылку на презентацию.')
+    if(p.pdf&&!(/^\/media\/[a-f0-9-]{36}\.pdf$/.test(p.pdf)||/^assets\/[\w./-]+\.pdf$/.test(p.pdf)&&!p.pdf.includes('..')||/^https?:\/\//i.test(p.pdf))) throw new Error('Проверьте ссылку на презентацию.')
   }
   if(!Array.isArray(state.editorial.exclusives)||!Array.isArray(state.editorial.top)||state.editorial.exclusives.length!==3||state.editorial.top.length!==3) throw new Error('В каждой подборке должно быть три места.')
   for(const slot of state.editorial.exclusives){

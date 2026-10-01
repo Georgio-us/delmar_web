@@ -99,17 +99,38 @@ function showPropertyEditor(id){
   editorField(fields,'Застройщик','developer',property.developer,'text',developers)
   const description=editorField(fields,'Описание','description',property.description,'textarea');description.parentElement.classList.add('editor-wide')
   const photos=editorField(fields,'Фотографии — одна ссылка или путь assets/ на строку','photos',property.photos.join('\n'),'textarea');photos.parentElement.classList.add('editor-wide')
-  const uploader=editorField(fields,'Или загрузить фотографии (до 8, по 1 МБ)','upload','','file');uploader.accept='image/jpeg,image/png,image/webp';uploader.multiple=true;uploader.removeAttribute('value')
+  const uploader=editorField(fields,'Загрузить фотографии — до 8, по 10 МБ','upload','','file');uploader.accept='image/jpeg,image/png,image/webp';uploader.multiple=true;uploader.parentElement.classList.add('editor-file-upload')
+  const pdf=editorField(fields,'Ссылка на PDF — необязательно','pdf',property.pdf||'')
+  const pdfUploader=editorField(fields,'Загрузить презентацию PDF — до 20 МБ','pdf-upload','','file');pdfUploader.accept='application/pdf';pdfUploader.parentElement.classList.add('editor-file-upload')
+  const pdfStatus=document.createElement('p');pdfStatus.className='editor-upload-note';pdfStatus.textContent=pdf.value?'Презентация прикреплена. Можно заменить файл или удалить ссылку.':'PDF не прикреплён.';pdfUploader.parentElement.after(pdfStatus)
   let photoReadPending=false
-  function preview(){const container=form.querySelector('.editor-photo-preview');container.replaceChildren();for(const src of photos.value.split('\n').map(x=>x.trim()).filter(safeAsset).slice(0,8)){const image=document.createElement('img');image.src=src;image.alt='Предпросмотр фотографии';container.append(image)}}
+  function preview(){
+    const container=form.querySelector('.editor-photo-preview');container.replaceChildren()
+    const sources=photos.value.split('\n').map(x=>x.trim()).filter(Boolean)
+    sources.slice(0,8).forEach((src,index)=>{if(!safeAsset(src))return;const item=document.createElement('div'),image=document.createElement('img');image.src=src;image.alt='Фотография '+(index+1);item.append(image,editorButton('Убрать',()=>{sources.splice(index,1);photos.value=sources.join('\n');preview()},'editor-button editor-photo-remove'));item.querySelector('button').disabled=photoReadPending;container.append(item)})
+  }
   photos.addEventListener('input',preview);preview()
+  async function uploadFile(file){
+    const response=await fetch('/api/editor/media',{method:'POST',credentials:'same-origin',headers:{'Content-Type':file.type,'X-Delmar-Editor':'1'},body:file,signal:AbortSignal.timeout(60000)})
+    const result=await response.json();if(!response.ok)throw new Error(result.error||'Не удалось загрузить файл.');return result.url
+  }
+  async function uploading(action){
+    if(photoReadPending)return
+    if(!ContentRepository.config.mediaEnabled){editorNotice('Загрузка в R2 не настроена. Проверьте переменные сервиса сайта.');return}
+    photoReadPending=true;const controls=[...form.querySelectorAll('button,input,textarea,select')].map(input=>[input,input.disabled]);controls.forEach(([input])=>input.disabled=true)
+    try{await action()}catch(error){editorNotice(error.name==='TimeoutError'?'Время загрузки истекло. Повторите попытку.':error.message||'Не удалось загрузить файл.')}finally{photoReadPending=false;controls.forEach(([input,disabled])=>input.disabled=disabled);form.querySelectorAll('.editor-photo-remove').forEach(button=>button.disabled=false);uploader.value='';pdfUploader.value=''}
+  }
   uploader.addEventListener('change',async()=>{
     const files=[...uploader.files];if(!files.length)return
-    if(files.length>8||files.some(file=>file.size>1024*1024||!['image/jpeg','image/png','image/webp'].includes(file.type))){editorNotice('Выберите до 8 JPG, PNG или WebP, не более 1 МБ каждый.');uploader.value='';return}
-    photoReadPending=true;const save=form.querySelector('[type="submit"]');save.disabled=true
-    try{const loaded=await Promise.all(files.map(file=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file)})));photos.value=loaded.join('\n');preview();editorNotice('Фотографии загружены. Сохраните объект.')}catch{editorNotice('Не удалось прочитать фотографии.')}finally{photoReadPending=false;save.disabled=false}
+    const existing=photos.value.split('\n').map(x=>x.trim()).filter(Boolean)
+    if(existing.length+files.length>8||files.some(file=>file.size>10*1024*1024||!['image/jpeg','image/png','image/webp'].includes(file.type))){editorNotice('До 8 фотографий, по 10 МБ. При необходимости уберите старые фотографии.');uploader.value='';return}
+    await uploading(async()=>{for(let i=0;i<files.length;i++){editorNotice('Загружаем фотографию '+(i+1)+' из '+files.length+'…');const url=await uploadFile(files[i]);existing.push(url);photos.value=existing.join('\n');preview()}editorNotice('Фотографии загружены в R2. Сохраните объект, чтобы опубликовать галерею.')})
   })
-  editorField(fields,'Презентация PDF — необязательно','pdf',property.pdf||'')
+  pdfUploader.addEventListener('change',async()=>{
+    const file=pdfUploader.files[0];if(!file)return
+    if(file.type!=='application/pdf'||file.size>20*1024*1024){editorNotice('Выберите PDF не больше 20 МБ.');pdfUploader.value='';return}
+    await uploading(async()=>{editorNotice('Загружаем PDF…');pdf.value=await uploadFile(file);pdfStatus.textContent='Прикреплено: '+file.name;editorNotice('PDF загружен в R2. Сохраните объект, чтобы прикрепить презентацию.')})
+  })
   editorChoices(fields,'Подборки','tags',property.tags,[['new','Новостройки'],['resale','Готовые квартиры'],['sea','У моря'],['family','Для семьи'],['center','Центр Одессы'],['large','Просторные квартиры']])
   editorChoices(fields,'Цель покупки','goals',property.goals,[['life','Для жизни'],['investment','Для инвестиций']])
   form.addEventListener('submit',async event=>{
