@@ -11,6 +11,7 @@ const defaultEditorial = {
 }
 const seededProperties = propertyInventory.map(property=>({...property,...Object.fromEntries(['district','developer','tags','goals'].map(key=>[key,seedMetadata.get(property.id)?.[key]||''])),kind:seedMetadata.get(property.id)?.type||'resale'}))
 let contentState={version:1,properties:seededProperties,editorial:structuredClone(defaultEditorial)}
+contentState=normalizeEditorialContent(contentState)
 let contentRevision=0
 let activeTopCategory='all'
 async function contentRequest(path,options={}){
@@ -21,7 +22,7 @@ async function contentRequest(path,options={}){
   return data
 }
 function applyRemoteContent(result){
-  validateContent(result.state);contentState=structuredClone(result.state);contentRevision=result.revision
+  validateContent(result.state);contentState=normalizeEditorialContent(result.state);contentRevision=result.revision
   propertyInventory.splice(0,propertyInventory.length,...contentState.properties);renderContentCards();document.dispatchEvent(new CustomEvent('delmar:content-changed'))
 }
 const ContentRepository={
@@ -51,31 +52,38 @@ function renderContentCards(){
   for(const p of propertyInventory){
     const card=catalogTemplate.cloneNode(true);card.hidden=false;delete card.dataset.demo
     Object.assign(card.dataset,{property:p.id,price:p.price,type:p.kind,district:p.district,developer:p.developer,rooms:p.rooms,area:p.area,tags:p.tags,goals:p.goals})
-    card.querySelector('img').src=p.photos[0];card.querySelector('img').alt=p.title
+    card.querySelector('img').src=p.photos[0]||'assets/property-placeholder.svg';card.querySelector('img').alt=p.title
     card.querySelector('.property-open').dataset.openProperty=p.id;card.querySelector('.property-open').textContent=p.title
     card.querySelector('div>span').textContent=p.type+' · '+p.location
     card.querySelector('b').textContent='$'+new Intl.NumberFormat('ru-RU').format(p.price)
-    card.querySelector('p').textContent=`${p.area} м² · ${p.rooms} комнаты`
-    grid.append(card)
+    card.querySelector('p').textContent=`${p.area} м² · ${p.rooms} комн.`
+    addPropertyTags(card,p);grid.append(card)
   }
   renderTopCards()
 }
 function renderTopCards(){
   const top=document.querySelector('.top-grid');top.replaceChildren()
-  const editorial=contentState.editorial.top.map(id=>propertyInventory.find(p=>p.id===id)).filter(Boolean)
-  // Editorial choices lead each collection; fill the remaining places from matching inventory.
-  const ordered=[...editorial,...propertyInventory.filter(p=>!editorial.some(item=>item.id===p.id))]
-  const selected=activeTopCategory==='all'?editorial:ordered.filter(p=>p.tags.split(' ').includes(activeTopCategory)).slice(0,3)
+  const selected=(contentState.editorial.collections[activeTopCategory]||[]).map(id=>propertyInventory.find(p=>p.id===id)).filter(p=>p&&matchesCollection(p,activeTopCategory))
+  const heading=document.querySelector('#top-title');heading.textContent=collectionLabels[activeTopCategory]
   selected.forEach((p,index)=>{
-    const card=topTemplate.cloneNode(true);card.querySelector('img').src=p.photos[0];card.querySelector('img').alt=p.title
+    const card=topTemplate.cloneNode(true);card.querySelector('img').src=p.photos[0]||'assets/property-placeholder.svg';card.querySelector('img').alt=p.title
     card.querySelector('.top-rank').textContent=String(index+1).padStart(2,'0')
     card.querySelector('.property-open').textContent=p.title;card.querySelector('.property-open').dataset.openProperty=p.id
-    card.querySelector('p').textContent=`${p.location} · ${p.area} м² · ${p.rooms} комнаты`
-    card.querySelector('b').textContent='$'+new Intl.NumberFormat('ru-RU').format(p.price);top.append(card)
+    card.querySelector('p').textContent=`${p.location} · ${p.area} м² · ${p.rooms} комн.`
+    card.querySelector('b').textContent='$'+new Intl.NumberFormat('ru-RU').format(p.price);addPropertyTags(card,p);top.append(card)
   })
-  document.querySelector('#top-properties').hidden=activeTopCategory==='all'&&!top.children.length
+  document.querySelector('#top-properties').hidden=!top.children.length&&!ContentRepository.config.authenticated
   document.querySelector('#top-empty').hidden=selected.length>0
   document.querySelectorAll('[data-category]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.category===activeTopCategory)))
 }
 
 ContentRepository.ready=ContentRepository.connect()
+
+function propertyIcon(key){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('class','icon');svg.setAttribute('aria-hidden','true');const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',propertyIcons[key]||propertyIcons.home);svg.append(path);return svg}
+function addPropertyTags(card,p){
+ card.querySelectorAll('.favorite,.property-tags').forEach(node=>node.remove())
+ const tags=document.createElement('aside');tags.className='property-tags'
+ const code=document.createElement('span');code.textContent=propertyCode(p);tags.append(code)
+ if(contentState.editorial.exclusives.some(slot=>slot.propertyId===p.id)){const tag=document.createElement('span');tag.textContent='Эксклюзив';tags.append(tag)}
+ card.append(tags)
+}

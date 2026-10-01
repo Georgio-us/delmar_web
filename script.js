@@ -103,6 +103,7 @@ function updateCatalog(scroll = false) {
   })
   cards.forEach(card => card.hidden = !matches.includes(card) || matches.indexOf(card) >= visibleCount)
   $('#catalog-empty').hidden = matches.length > 0
+  $('#catalog-empty').textContent = propertyInventory.length ? 'По этим параметрам объектов пока нет - измените фильтры' : 'Объекты скоро появятся — оставьте заявку на подбор'
   more.hidden = matches.length <= visibleCount
   if (scroll) catalog.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
@@ -254,12 +255,6 @@ function focusReview(nextIndex) {
 $('#reviews-prev').addEventListener('click', () => focusReview(reviewIndex - 1))
 $('#reviews-next').addEventListener('click', () => focusReview(reviewIndex + 1))
 
-document.addEventListener('click', event => {
-  const button = event.target.closest('.favorite'); if (!button) return
-  const active = button.getAttribute('aria-pressed') !== 'true'
-  button.setAttribute('aria-pressed', String(active))
-  button.setAttribute('aria-label', active ? 'Убрать из избранного' : 'Добавить в избранное')
-})
 const menu = $('.menu-toggle')
 const mobileNav = $('#mobile-nav')
 let menuBodyOverflow = ''
@@ -309,7 +304,7 @@ let exclusiveItems = []
 function rebuildExclusives() {
   exclusiveItems = ContentRepository.getSnapshot().editorial.exclusives.filter(slot => slot.propertyId).map(slot => {
     const property = propertyInventory.find(p => p.id === slot.propertyId)
-    return {...slot, location:property.location,area:property.area+' м²',rooms:property.rooms+(property.id==='p005'?' спальни':' комнаты'),image:property.photos[0],alt:property.title,pdf:property.pdf}
+    return {...slot, location:property.location,area:property.area+' м²',rooms:property.rooms+(property.id==='p005'?' спальни':' комнаты'),image:property.photos[slot.display?.cover||0]||property.photos[0]||'assets/property-placeholder.svg',alt:property.title,pdf:property.pdf}
   })
 }
 rebuildExclusives()
@@ -318,6 +313,8 @@ let exclusiveIndex = 0
 const presentation = $('.presentation-button')
 function renderExclusive() {
   $('#featured').hidden = !exclusiveItems.length
+  $('.featured-copy').hidden=!exclusiveItems.length;$('.featured-image').hidden=!exclusiveItems.length
+  $('.featured-panel').classList.toggle('editor-empty',!exclusiveItems.length)
   if (!exclusiveItems.length) return
   exclusiveIndex = Math.min(exclusiveIndex,exclusiveItems.length-1)
   const item = exclusiveItems[exclusiveIndex]
@@ -330,13 +327,12 @@ function renderExclusive() {
   $('#exclusive-price').textContent = formatPropertyPrice(propertyInventory.find(property => property.id === exclusiveItems[exclusiveIndex]?.propertyId).price)
   const location = $('.featured-location')
   location.replaceChildren(location.querySelector('svg'), document.createTextNode(' ' + item.location))
-  const values = $$('.featured-specs strong')
-  values[0].textContent = item.area; values[1].textContent = item.rooms; values[2].textContent = item.feature
-  $$('.featured-specs small')[2].textContent = item.caption
-  $$('.featured-specs svg')[2].replaceWith(exclusiveIcons[exclusiveIndex ? 'pin' : 'terrace'].cloneNode(true))
+  const property=propertyInventory.find(p=>p.id===item.propertyId),display=item.display||defaultExclusiveDisplay(item)
+  $$('.featured-specs>span').forEach((span,index)=>{const f=display.stats[index];span.querySelector('svg').replaceWith(propertyIcon(f.icon));span.querySelector('strong').textContent=displayFeatureValue(property,f);span.querySelector('small').textContent=f.label})
   $('.featured-copy>p:not(.featured-location)').textContent = item.description
   const image = $('.featured-image>img'); image.src = item.image; image.alt = item.alt
-  $$('.featured-image-facts>span').forEach((span,index) => span.replaceChildren(exclusiveIcons[index ? (exclusiveIndex ? 'pin' : 'sea') : (exclusiveIndex ? 'area' : 'terrace')].cloneNode(true), document.createTextNode(' ' + item.facts[index])))
+  $$('.featured-image-facts>span').forEach((span,index)=>{const f=display.photoFacts[index];span.replaceChildren(propertyIcon(f.icon),document.createTextNode(' '+displayFeatureValue(property,f)))})
+  let code=$('.featured-code');if(!code){code=document.createElement('span');code.className='featured-code';$('.featured-meta').append(code)}code.textContent=propertyCode(property);code.dataset.noI18n=''
   $('#exclusive-count').textContent = `${exclusiveIndex + 1} / ${exclusiveItems.length}`
   presentation.href = item.pdf || '#contact'
   if (item.pdf) presentation.setAttribute('download','DELMAR-penthouse-presentation.pdf'); else presentation.removeAttribute('download')
@@ -368,7 +364,7 @@ let previousBodyOverflow = ''
 function formatPropertyPrice(amount) { return '$' + new Intl.NumberFormat('ru-RU').format(amount) }
 function setPropertyPhoto(index) {
   const image = $('#property-photo')
-  image.src = currentProperty.photos[index]
+  image.src = currentProperty.photos[index]||'assets/property-placeholder.svg'
   image.alt = `${currentProperty.title} — фото ${index + 1}`
   $$('#property-thumbnails button').forEach((button, i) => button.setAttribute('aria-pressed', String(i === index)))
 }
@@ -377,13 +373,13 @@ function openProperty(id) {
   if (!property) return
   currentProperty = property
   $('#property-title').textContent = property.title
-  $('#property-reference').textContent = `Объект ${property.id.slice(1)} · ${property.type}`
+  $('#property-reference').textContent = `${propertyCode(property)} · ${property.type}${contentState.editorial.exclusives.some(slot=>slot.propertyId===property.id)?' · Эксклюзив':''}`
   $('#property-location').textContent = property.location
   $('#property-price').textContent = formatPropertyPrice(property.price)
   $('#property-description').textContent = property.description
   $('#property-specs').replaceChildren()
   const unitPrice = Math.round(property.price / property.area)
-  ;[`${property.area} м²`, `${property.rooms} комнаты`, `${formatPropertyPrice(unitPrice)} / м²`].forEach(text => {
+  ;[`${property.area} м²`, `${property.rooms} комн.`, `${formatPropertyPrice(unitPrice)} / м²`,...(property.floor!=null?[property.floor+' этаж']:[]),...(property.baths!=null?[property.baths+' ванн.']:[]),...(property.terraceArea?[property.terraceArea+' м² терраса']:[])].forEach(text => {
     const item = document.createElement('span'); item.textContent = text; $('#property-specs').append(item)
   })
   const thumbs = $('#property-thumbnails'); thumbs.replaceChildren()
