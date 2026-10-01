@@ -1,5 +1,4 @@
-// Local repository boundary. Replace this adapter with authenticated API calls later.
-const contentStorageKey = 'delmar-content-v1'
+// Shared content adapter: authenticated same-origin API, PostgreSQL persistence.
 const catalogTemplate = document.querySelector('.catalog-card').cloneNode(true)
 const topTemplate = document.querySelector('.top-card').cloneNode(true)
 const seedMetadata = new Map([...document.querySelectorAll('.catalog-card')].map(card => [card.dataset.property,{...card.dataset}]))
@@ -11,42 +10,39 @@ const defaultEditorial = {
   ], top:['p003','p005','p001']
 }
 const seededProperties = propertyInventory.map(property=>({...property,...Object.fromEntries(['district','developer','tags','goals'].map(key=>[key,seedMetadata.get(property.id)?.[key]||''])),kind:seedMetadata.get(property.id)?.type||'resale'}))
-function safeAsset(value) {
-  if (typeof value !== 'string' || !value.trim()) return false
-  return /^assets\/[\w./-]+$/.test(value) && !value.includes('..') || /^https?:\/\//i.test(value) || /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value)
-}
-function validateContent(state) {
-  if (!state || state.version!==1 || !Array.isArray(state.properties) || !state.editorial) throw new Error('Некорректный формат данных.')
-  const ids=new Set()
-  if(state.properties.length>500) throw new Error('Не более 500 объектов в локальном прототипе.')
-  for(const p of state.properties){
-    if(!/^p[\w-]{1,70}$/.test(p.id)||ids.has(p.id)) throw new Error('Некорректный или повторяющийся ID объекта.')
-    ids.add(p.id)
-    for(const key of ['title','location','description','type','district','kind','tags','goals','developer']) if(typeof p[key]!=='string') throw new Error('Заполните данные объекта.')
-    if(!p.title.trim()||p.title.length>160||!p.location.trim()||p.description.length>10000) throw new Error('Проверьте название, адрес и описание.')
-    if(!Number.isFinite(p.price)||p.price<=0||!Number.isFinite(p.area)||p.area<=0||!Number.isInteger(p.rooms)||p.rooms<1||p.rooms>20) throw new Error('Укажите положительные цену и площадь; комнаты — от 1 до 20.')
-    if(!['new','resale'].includes(p.kind)||!['primorsky','arkadia','center'].includes(p.district)) throw new Error('Выберите тип и район.')
-    if(!Array.isArray(p.photos)||!p.photos.length||p.photos.length>8||p.photos.some(photo=>!safeAsset(photo))) throw new Error('Добавьте 1–8 фотографий: путь assets/, URL или загруженный файл.')
-    if(p.pdf&&!(/^assets\/[\w./-]+\.pdf$/.test(p.pdf)&&!p.pdf.includes('..')||/^https?:\/\//i.test(p.pdf))) throw new Error('Проверьте ссылку на презентацию.')
-  }
-  if(state.editorial.exclusives.length!==3||state.editorial.top.length!==3) throw new Error('В каждой подборке должно быть три места.')
-  for(const slot of state.editorial.exclusives){
-    if(slot.propertyId!==null&&!ids.has(slot.propertyId)) throw new Error('Эксклюзив ссылается на удалённый объект.')
-    for(const [key,max]of [['title',120],['description',280],['feature',50],['caption',50]]) if(typeof slot[key]!=='string'||slot[key].length>max) throw new Error('Текст эксклюзива слишком длинный. Заголовок — до 120, описание — до 280 символов.')
-    if(slot.propertyId&&!slot.title.trim())throw new Error('Укажите заголовок эксклюзива.')
-    if(!Array.isArray(slot.facts)||slot.facts.length!==2||slot.facts.some(x=>typeof x!=='string'||x.length>100)) throw new Error('Проверьте подписи на фотографии.')
-  }
-  if(state.editorial.top.some(id=>id!==null&&!ids.has(id))) throw new Error('Топ-3 ссылается на удалённый объект.')
-  for(const list of [state.editorial.top,state.editorial.exclusives.map(x=>x.propertyId)]){const values=list.filter(Boolean);if(new Set(values).size!==values.length)throw new Error('В подборке каждый объект должен встречаться один раз.')}
-  return state
-}
 let contentState={version:1,properties:seededProperties,editorial:structuredClone(defaultEditorial)}
-let contentLoadError='',hasSavedContent=false
-try {const saved=localStorage.getItem(contentStorageKey);if(saved){contentState=validateContent(JSON.parse(saved));hasSavedContent=true}}catch(error){contentLoadError='Сохранённые данные не удалось прочитать. Исходный каталог доступен; экспортируйте резервную копию перед дальнейшими изменениями.'}
-const ContentRepository = {
+let contentRevision=0
+async function contentRequest(path,options={}){
+  const response=await fetch(path,{credentials:'same-origin',...options,headers:{'Content-Type':'application/json','X-Delmar-Editor':'1',...options.headers},signal:AbortSignal.timeout(15000)})
+  if(response.status===304)return null
+  const data=await response.json()
+  if(!response.ok){const error=new Error(data.error||'Не удалось выполнить запрос.');error.status=response.status;error.code=data.code;throw error}
+  return data
+}
+function applyRemoteContent(result){
+  validateContent(result.state);contentState=structuredClone(result.state);contentRevision=result.revision
+  propertyInventory.splice(0,propertyInventory.length,...contentState.properties);renderContentCards();document.dispatchEvent(new CustomEvent('delmar:content-changed'))
+}
+const ContentRepository={
+  config:{serverAvailable:false,database:false,editorEnabled:false,authenticated:false},
+  loadError:'',
   getSnapshot:()=>structuredClone(contentState),
-  save(next){validateContent(next);const serialized=JSON.stringify(next);localStorage.setItem(contentStorageKey,serialized);contentState=structuredClone(next);propertyInventory.splice(0,propertyInventory.length,...contentState.properties);renderContentCards();document.dispatchEvent(new CustomEvent('delmar:content-changed'));},
-  loadError:contentLoadError
+  request:contentRequest,
+  async connect(){
+    try{
+      const [config,result,session]=await Promise.all([contentRequest('/api/config'),contentRequest('/api/content'),contentRequest('/api/session')])
+      Object.assign(this.config,config,{serverAvailable:true,authenticated:session.authenticated})
+      if(session.authenticated)applyRemoteContent(await contentRequest('/api/editor/content'));else applyRemoteContent(result)
+    }catch{this.config.authenticated=false;this.config.editorEnabled=false;this.loadError='Серверное хранение недоступно. Каталог показан без возможности редактирования.'}
+  },
+  async loadEditor(){applyRemoteContent(await contentRequest('/api/editor/content'))},
+  async refreshPublic(){if(!this.config.serverAvailable||this.config.authenticated)return;try{const result=await contentRequest('/api/content',{headers:{'If-None-Match':`"${contentRevision}"`}});if(result)applyRemoteContent(result)}catch{}},
+  async save(next){
+    validateContent(next)
+    if(!this.config.editorEnabled)throw new Error('Вход и база данных ещё не настроены на сервере.')
+    const result=await contentRequest('/api/editor/content',{method:'PUT',body:JSON.stringify({state:next,revision:contentRevision})})
+    applyRemoteContent(result)
+  }
 }
 propertyInventory.splice(0,propertyInventory.length,...contentState.properties)
 function renderContentCards(){
@@ -72,5 +68,5 @@ function renderContentCards(){
   })
   document.querySelector('#top-properties').hidden=!top.children.length
 }
-// Preserve accepted seed image framing until the first content edit.
-if(hasSavedContent)renderContentCards()
+
+ContentRepository.ready=ContentRepository.connect()

@@ -1,14 +1,16 @@
-// Demo session adapter; client-only credentials are not server authorization.
+// The server owns credentials and sessions; no password or auth token is kept in browser storage.
 const EditorSession={
-  isActive(){try{return sessionStorage.getItem('delmar-editor')==='active'}catch{return false}},
-  signIn(login,password){if(login!=='editor'||password!=='delmar-demo')return false;try{sessionStorage.setItem('delmar-editor','active')}catch{}return true},
-  signOut(){try{sessionStorage.removeItem('delmar-editor')}catch{}}
+  isActive(){return ContentRepository.config.authenticated},
+  async signIn(login,password){
+    try{await ContentRepository.request('/api/login',{method:'POST',body:JSON.stringify({login,password})});ContentRepository.config.authenticated=true;await ContentRepository.loadEditor();return true}catch(error){ContentRepository.config.authenticated=false;if(error.status===401)return false;throw error}
+  },
+  async signOut(){await ContentRepository.request('/api/logout',{method:'POST',body:'{}'});ContentRepository.config.authenticated=false;await ContentRepository.refreshPublic()}
 }
 const editorRoot=document.createElement('dialog');editorRoot.className='editor-dialog';editorRoot.id='editor-dialog';editorRoot.setAttribute('aria-labelledby','editor-title');editorRoot.dataset.noI18n=''
 editorRoot.innerHTML=`<div class="editor-heading"><div><span class="eyebrow">DELMAR · РЕДАКТОР</span><h2 id="editor-title"></h2></div><button type="button" class="editor-close" aria-label="Закрыть редактор"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div><div id="editor-content"></div><p id="editor-status" role="status"></p>`
 document.body.append(editorRoot)
 const editorToolbar=document.createElement('div');editorToolbar.className='editor-toolbar';editorToolbar.dataset.noI18n='';editorToolbar.hidden=true
-editorToolbar.innerHTML='<span>Режим редактора <small>Сохранение в этом браузере</small></span><button type="button" data-editor-view="objects">Объекты</button><button type="button" data-editor-view="exclusives">Эксклюзивы</button><button type="button" data-editor-view="top">Топ-3</button><button type="button" id="editor-logout">Выйти</button>'
+editorToolbar.innerHTML='<span>Режим редактора <small>Сохранение на сервере</small></span><button type="button" data-editor-view="objects">Объекты</button><button type="button" data-editor-view="exclusives">Эксклюзивы</button><button type="button" data-editor-view="top">Топ-3</button><button type="button" id="editor-logout">Выйти</button>'
 document.body.append(editorToolbar)
 let editorPreviousOverflow='',editorActive=EditorSession.isActive(),editorCurrentView='objects',editorSearch=''
 function editorNotice(message){document.querySelector('#editor-status').textContent=message}
@@ -47,11 +49,12 @@ function syncEditorUI(){
   document.querySelectorAll('.catalog-card').forEach(card=>{const button=editorButton('Изменить объект',()=>showPropertyEditor(card.dataset.property),'editor-inline editor-card-edit');card.append(button)})
 }
 function showEditorLogin(){
-  editorContent.innerHTML='<p class="editor-intro">Вход в редакционный режим. Демо-доступ: <b>editor / delmar-demo</b>. Изменения сохраняются только в этом браузере.</p><form id="editor-login" novalidate><div class="editor-fields"></div><button class="editor-button editor-primary" type="submit">Войти</button></form>'
+  editorContent.innerHTML='<p class="editor-intro">Войдите с логином и паролем редактора. Изменения сохраняются на сервере и доступны всем посетителям.</p><form id="editor-login" novalidate><div class="editor-fields"></div><button class="editor-button editor-primary" type="submit">Войти</button></form>'
   const form=editorContent.querySelector('form'),fields=form.querySelector('.editor-fields')
   const login=editorField(fields,'Логин','login'),password=editorField(fields,'Пароль','password','','password');login.autocomplete='username';password.autocomplete='current-password'
-  form.addEventListener('submit',event=>{event.preventDefault();if(!EditorSession.signIn(login.value.trim(),password.value)){editorNotice('Проверьте логин и пароль.');password.setAttribute('aria-invalid','true');return}editorActive=true;syncEditorUI();showEditorView('objects')})
+  form.addEventListener('submit',async event=>{event.preventDefault();const button=form.querySelector('[type=submit]');button.disabled=true;try{if(!await EditorSession.signIn(login.value.trim(),password.value)){editorNotice('Проверьте логин и пароль.');password.setAttribute('aria-invalid','true');return}password.value='';editorActive=true;syncEditorUI();showEditorView('objects')}catch(error){editorNotice(error.message)}finally{button.disabled=false}})
   editorOpen('Вход для редактора')
+  if(!ContentRepository.config.editorEnabled)editorNotice('Вход ещё не настроен. Необходимы база данных и данные редактора в настройках сервера.')
 }
 function showEditorView(view){
   if(!editorActive){showEditorLogin();return}
@@ -77,9 +80,11 @@ function showObjectList(){
   search.addEventListener('input',()=>{editorSearch=search.value;list()});list();editorOpen('Объекты')
   if(ContentRepository.loadError)editorNotice(ContentRepository.loadError)
 }
-function persistEditor(next,message){
+async function persistEditor(next,message){
   if(!editorActive){showEditorLogin();return false}
-  try{ContentRepository.save(next);syncEditorUI();editorNotice(message);return true}catch(error){editorNotice(error.name==='QuotaExceededError'?'Память браузера заполнена. Уменьшите фотографии или используйте ссылки на изображения.':error.message);return false}
+  const controls=[...editorRoot.querySelectorAll('button,input,textarea,select'),...editorToolbar.querySelectorAll('button')].map(control=>[control,control.disabled])
+  controls.forEach(([control])=>control.disabled=true);editorNotice('Сохраняем изменения…')
+  try{await ContentRepository.save(next);syncEditorUI();editorNotice(message);return true}catch(error){if(error.status===401){editorActive=false;ContentRepository.config.authenticated=false;syncEditorUI()}editorNotice(error.message||'Не удалось сохранить изменения.');return false}finally{controls.forEach(([control,disabled])=>control.disabled=disabled)}
 }
 function showPropertyEditor(id){
   const snapshot=ContentRepository.getSnapshot(),property=snapshot.properties.find(p=>p.id===id)||{title:'',location:'',price:100000,area:70,rooms:2,kind:'new',district:'primorsky',developer:'',description:'',photos:['assets/bright-apartment.jpg','assets/modern-interior.jpg'],tags:'new family',goals:'life investment',pdf:''}
@@ -107,31 +112,31 @@ function showPropertyEditor(id){
   editorField(fields,'Презентация PDF — необязательно','pdf',property.pdf||'')
   editorChoices(fields,'Подборки','tags',property.tags,[['new','Новостройки'],['resale','Готовые квартиры'],['sea','У моря'],['family','Для семьи'],['center','Центр Одессы'],['large','Просторные квартиры']])
   editorChoices(fields,'Цель покупки','goals',property.goals,[['life','Для жизни'],['investment','Для инвестиций']])
-  form.addEventListener('submit',event=>{
+  form.addEventListener('submit',async event=>{
     event.preventDefault();if(photoReadPending)return
     const data=new FormData(form),next=ContentRepository.getSnapshot()
     const updated={...property,id:id||'p'+String(Math.max(0,...next.properties.map(p=>/^p\d+$/.test(p.id)?Number(p.id.slice(1)):0),...(next.trash||[]).map(entry=>/^p\d+$/.test(entry.property.id)?Number(entry.property.id.slice(1)):0))+1).padStart(3,'0'),title:String(data.get('title')).trim(),location:String(data.get('location')).trim(),price:Number(data.get('price')),area:Number(data.get('area')),rooms:Number(data.get('rooms')),kind:data.get('kind'),type:data.get('kind')==='new'?'Новостройка':'Вторичная недвижимость',district:data.get('district'),developer:data.get('developer'),description:String(data.get('description')).trim(),photos:String(data.get('photos')).split('\n').map(x=>x.trim()).filter(Boolean),tags:data.getAll('tags').join(' '),goals:data.getAll('goals').join(' '),pdf:String(data.get('pdf')).trim()}
     const index=next.properties.findIndex(p=>p.id===id);if(index>=0)next.properties[index]=updated;else next.properties.unshift(updated)
-    if(persistEditor(next,'Объект сохранён.')){showObjectList();editorNotice('Объект сохранён. Каталог и подборки обновлены.')}
+    if(await persistEditor(next,'Объект сохранён.')){showObjectList();editorNotice('Объект сохранён. Каталог и подборки обновлены.')}
   })
   editorOpen(id?'Редактировать объект':'Новый объект')
 }
 function showDeleteProperty(id){
   const state=ContentRepository.getSnapshot(),property=state.properties.find(p=>p.id===id);if(!property)return
-  editorContent.replaceChildren();const copy=document.createElement('p');copy.className='editor-intro';copy.textContent=`Удалить «${property.title}» из локального каталога? Если объект входит в эксклюзивы или топ-3, соответствующее место останется пустым — его можно заполнить другим объектом.`
-  editorContent.append(copy,editorButton('Отмена',showObjectList),editorButton('Удалить объект',()=>{
+  editorContent.replaceChildren();const copy=document.createElement('p');copy.className='editor-intro';copy.textContent=`Удалить «${property.title}» из каталога? Если объект входит в эксклюзивы или топ-3, соответствующее место останется пустым — его можно заполнить другим объектом.`
+  editorContent.append(copy,editorButton('Отмена',showObjectList),editorButton('Удалить объект',async()=>{
     const next=ContentRepository.getSnapshot();next.trash=next.trash||[];next.trash.push({property:next.properties.find(p=>p.id===id),editorial:structuredClone(next.editorial)});next.properties=next.properties.filter(p=>p.id!==id);next.editorial.top=next.editorial.top.map(value=>value===id?null:value);next.editorial.exclusives=next.editorial.exclusives.map(slot=>slot.propertyId===id?{...slot,propertyId:null}:slot)
-    if(persistEditor(next,'Объект удалён.')){showObjectList();editorNotice('Объект удалён. Места в подборках освобождены.')}
+    if(await persistEditor(next,'Объект удалён.')){showObjectList();editorNotice('Объект удалён. Места в подборках освобождены.')}
   },'editor-button editor-danger'))
   editorOpen('Удалить объект')
 }
-function restoreEditorProperty(){
+async function restoreEditorProperty(){
   const next=ContentRepository.getSnapshot(),entry=next.trash?.pop();if(!entry)return
   next.properties.push(entry.property)
   // Restore vacant editorial places only; keep subsequent editorial changes.
   next.editorial.top=next.editorial.top.map((id,i)=>id|| (entry.editorial.top[i]===entry.property.id?entry.property.id:null))
   next.editorial.exclusives=next.editorial.exclusives.map((slot,i)=>!slot.propertyId&&entry.editorial.exclusives[i].propertyId===entry.property.id?entry.editorial.exclusives[i]:slot)
-  if(persistEditor(next,'Объект восстановлен.')){showObjectList();editorNotice('Объект восстановлен.')}
+  if(await persistEditor(next,'Объект восстановлен.')){showObjectList();editorNotice('Объект восстановлен.')}
 }
 function showEditorialEditor(view){
   const state=ContentRepository.getSnapshot();editorContent.innerHTML='<p class="editor-intro"></p><form id="editor-slots-form" novalidate><div class="editor-slots"></div><button type="submit" class="editor-button editor-primary">Сохранить подборку</button></form>'
@@ -143,7 +148,7 @@ function showEditorialEditor(view){
     editorField(fields,'Объект','property-'+i,view==='top'?state.editorial.top[i]||'':state.editorial.exclusives[i].propertyId||'','text',options)
     if(view==='exclusives'){const value=state.editorial.exclusives[i];for(const [key,label]of [['title','Заголовок (перенос строки допустим)'],['description','Короткое описание'],['feature','Особенность'],['caption','Подпись особенности']])editorField(fields,label,key+'-'+i,value[key],key==='title'||key==='description'?'textarea':'text');editorField(fields,'Подпись на фото 1','fact1-'+i,value.facts[0]);editorField(fields,'Подпись на фото 2','fact2-'+i,value.facts[1])}
   }
-  form.addEventListener('submit',event=>{event.preventDefault();const data=new FormData(form),next=ContentRepository.getSnapshot();if(view==='top')next.editorial.top=[0,1,2].map(i=>data.get('property-'+i)||null);else next.editorial.exclusives=[0,1,2].map(i=>({propertyId:data.get('property-'+i)||null,title:data.get('title-'+i).trim(),description:data.get('description-'+i).trim(),feature:data.get('feature-'+i).trim(),caption:data.get('caption-'+i).trim(),facts:[data.get('fact1-'+i).trim(),data.get('fact2-'+i).trim()]}));persistEditor(next,'Подборка сохранена. Изменения уже видны на сайте.')})
+  form.addEventListener('submit',async event=>{event.preventDefault();const data=new FormData(form),next=ContentRepository.getSnapshot();if(view==='top')next.editorial.top=[0,1,2].map(i=>data.get('property-'+i)||null);else next.editorial.exclusives=[0,1,2].map(i=>({propertyId:data.get('property-'+i)||null,title:data.get('title-'+i).trim(),description:data.get('description-'+i).trim(),feature:data.get('feature-'+i).trim(),caption:data.get('caption-'+i).trim(),facts:[data.get('fact1-'+i).trim(),data.get('fact2-'+i).trim()]}));await persistEditor(next,'Подборка сохранена. Изменения уже видны на сайте.')})
   editorOpen(view==='top'?'Топ-3 объекта':'Три эксклюзива')
 }
 function exportEditorContent(){
@@ -155,5 +160,5 @@ function exportEditorContent(){
 }
 document.querySelector('#editor-entry').addEventListener('click',()=>{setMenuOpen(false);editorActive?showEditorView('objects'):showEditorLogin()})
 editorToolbar.querySelectorAll('[data-editor-view]').forEach(button=>button.addEventListener('click',()=>showEditorView(button.dataset.editorView)))
-document.querySelector('#editor-logout').addEventListener('click',()=>{EditorSession.signOut();editorActive=false;if(editorRoot.open)editorRoot.close();syncEditorUI()})
+document.querySelector('#editor-logout').addEventListener('click',async()=>{try{await EditorSession.signOut();editorActive=false;if(editorRoot.open)editorRoot.close();syncEditorUI()}catch(error){editorOpen('Выход из редактора');editorNotice(error.message)}})
 syncEditorUI()

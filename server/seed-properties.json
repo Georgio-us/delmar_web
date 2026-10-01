@@ -1,0 +1,478 @@
+[
+  {
+    "id": "p001",
+    "title": "Квартира в новом доме",
+    "price": 128000,
+    "location": "Приморский район, Одесса",
+    "area": 78,
+    "rooms": 2,
+    "type": "Новостройка",
+    "description": "Квартира в новом доме. Площадь 78 м², 2 комнаты. Продуманная планировка с просторной гостиной и отдельной зоной отдыха. Подойдёт для жизни в городе и семейных встреч.",
+    "photos": [
+      "assets/new-build.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "primorsky",
+    "developer": "hefest",
+    "tags": "new family",
+    "goals": "life investment",
+    "kind": "new"
+  },
+  {
+    "id": "p002",
+    "title": "Квартира в центре Одессы",
+    "price": 175000,
+    "location": "Центр, Одесса",
+    "area": 112,
+    "rooms": 3,
+    "type": "Вторичная недвижимость",
+    "description": "Квартира в центре Одессы. Площадь 112 м², 3 комнаты. Квартира в центральной части Одессы. Просторные комнаты и выразительные детали интерьера создают спокойное городское пространство.",
+    "photos": [
+      "assets/historic-interior.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "center",
+    "developer": "",
+    "tags": "resale center large family",
+    "goals": "life",
+    "kind": "resale"
+  },
+  {
+    "id": "p003",
+    "title": "Квартира у моря",
+    "price": 164000,
+    "location": "Аркадия, Одесса",
+    "area": 95,
+    "rooms": 2,
+    "type": "Новостройка",
+    "description": "Квартира у моря. Площадь 95 м², 2 комнаты. Светлые жилые пространства рядом с побережьем. Удобная планировка для отдыха и повседневной жизни у моря.",
+    "photos": [
+      "assets/odessa-hero.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "arkadia",
+    "developer": "budova",
+    "tags": "new sea",
+    "goals": "life investment",
+    "kind": "new"
+  },
+  {
+    "id": "p004",
+    "title": "Квартира с панорамными окнами",
+    "price": 185000,
+    "location": "Приморский район, Одесса",
+    "area": 108,
+    "rooms": 3,
+    "type": "Вторичная недвижимость",
+    "description": "Квартира с панорамными окнами. Площадь 108 м², 3 комнаты. Продуманная планировка с просторной гостиной и отдельной зоной отдыха. Подойдёт для жизни в городе и семейных встреч.",
+    "photos": [
+      "assets/modern-interior.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "primorsky",
+    "developer": "",
+    "tags": "resale large family",
+    "goals": "life",
+    "kind": "resale"
+  },
+  {
+    "id": "p005",
+    "title": "Пентхаус с террасой",
+    "price": 320000,
+    "location": "Приморский район, Одесса",
+    "area": 115,
+    "rooms": 3,
+    "type": "Новостройка",
+    "description": "Пентхаус с открытой террасой 45 м², панорамными окнами и видом на побережье. Просторная гостиная объединяет кухню и зону отдыха; три спальни расположены отдельно.",
+    "photos": [
+      "assets/penthouse-terrace.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "pdf": "assets/penthouse-presentation.pdf",
+    "district": "primorsky",
+    "developer": "kadorr",
+    "tags": "new sea large penthouse",
+    "goals": "life investment",
+    "kind": "new"
+  },
+  {
+    "id": "p006",
+    "title": "Светлая квартира в Аркадии",
+    "price": 119000,
+    "location": "Аркадия, Одесса",
+    "area": 82,
+    "rooms": 2,
+    "type": "Вторичная недвижимость",
+    "description": "Светлая квартира в Аркадии. Площадь 82 м², 2 комнаты. Светлые жилые пространства рядом с побережьем. Удобная планировка для отдыха и повседневной жизни у моря.",
+    "photos": [
+      "assets/bright-apartment.jpg",
+      "assets/modern-interior.jpg"
+    ],
+    "district": "arkadia",
+    "developer": "",
+    "tags": "resale sea",
+    "goals": "life investment",
+    "kind": "resale"
+  },
+  {
+    "id": "p007",
+    "title": "Квартира с просторной гостиной",
+    "price": 158000,
+    "location": "Приморский район, Одесса",
+    "area": 104,
+    "rooms": 3,
+    "type": "Новостройка",
+    "description": "Квартира с просторной гостиной. Площадь 104 м², 3 комнаты. Продуманная планировка с просторной гостиной и отдельной зоной отдыха. Подойдёт для жизни в городе и семейных встреч.",
+    "photos": [
+      "assets/modern-interior.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "primorsky",
+    "developer": "",
+    "tags": "new family large",
+    "goals": "life",
+    "kind": "new"
+  },
+  {
+    "id": "p008",
+    "title": "Квартира рядом с морем",
+    "price": 108000,
+    "location": "Аркадия, Одесса",
+    "area": 76,
+    "rooms": 2,
+    "type": "Вторичная недвижимость",
+    "description": "Квартира рядом с морем. Площадь 76 м², 2 комнаты. Светлые жилые пространства рядом с побережьем. Удобная планировка для отдыха и повседневной жизни у моря.",
+    "photos": [
+      "assets/bright-apartment.jpg",
+      "assets/modern-interior.jpg"
+    ],
+    "district": "arkadia",
+    "developer": "",
+    "tags": "resale sea",
+    "goals": "life investment",
+    "kind": "resale"
+  },
+  {
+    "id": "p009",
+    "title": "Квартира с высокими потолками",
+    "price": 215000,
+    "location": "Центр, Одесса",
+    "area": 118,
+    "rooms": 3,
+    "type": "Новостройка",
+    "description": "Квартира с высокими потолками. Площадь 118 м², 3 комнаты. Квартира в центральной части Одессы. Просторные комнаты и выразительные детали интерьера создают спокойное городское пространство.",
+    "photos": [
+      "assets/historic-interior.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "center",
+    "developer": "",
+    "tags": "new center family large",
+    "goals": "life",
+    "kind": "new"
+  },
+  {
+    "id": "p010",
+    "title": "Семейная квартира в новом доме",
+    "price": 248000,
+    "location": "Приморский район, Одесса",
+    "area": 126,
+    "rooms": 4,
+    "type": "Вторичная недвижимость",
+    "description": "Семейная квартира в новом доме. Площадь 126 м², 4 комнаты. Продуманная планировка с просторной гостиной и отдельной зоной отдыха. Подойдёт для жизни в городе и семейных встреч.",
+    "photos": [
+      "assets/new-build.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "primorsky",
+    "developer": "",
+    "tags": "resale family large",
+    "goals": "life",
+    "kind": "resale"
+  },
+  {
+    "id": "p011",
+    "title": "Квартира с открытой террасой",
+    "price": 235000,
+    "location": "Аркадия, Одесса",
+    "area": 110,
+    "rooms": 3,
+    "type": "Новостройка",
+    "description": "Квартира с открытой террасой. Площадь 110 м², 3 комнаты. Светлые жилые пространства рядом с побережьем. Удобная планировка для отдыха и повседневной жизни у моря.",
+    "photos": [
+      "assets/penthouse-terrace.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "arkadia",
+    "developer": "",
+    "tags": "new sea family large",
+    "goals": "life",
+    "kind": "new"
+  },
+  {
+    "id": "p012",
+    "title": "Светлая двухкомнатная квартира",
+    "price": 89000,
+    "location": "Приморский район, Одесса",
+    "area": 68,
+    "rooms": 2,
+    "type": "Вторичная недвижимость",
+    "description": "Светлая двухкомнатная квартира. Площадь 68 м², 2 комнаты. Продуманная планировка с просторной гостиной и отдельной зоной отдыха. Подойдёт для жизни в городе и семейных встреч.",
+    "photos": [
+      "assets/bright-apartment.jpg",
+      "assets/modern-interior.jpg"
+    ],
+    "district": "primorsky",
+    "developer": "",
+    "tags": "resale",
+    "goals": "life investment",
+    "kind": "resale"
+  },
+  {
+    "id": "p013",
+    "title": "Квартира в историческом центре",
+    "price": 142000,
+    "location": "Центр, Одесса",
+    "area": 87,
+    "rooms": 2,
+    "type": "Новостройка",
+    "description": "Квартира в историческом центре. Площадь 87 м², 2 комнаты. Квартира в центральной части Одессы. Просторные комнаты и выразительные детали интерьера создают спокойное городское пространство.",
+    "photos": [
+      "assets/historic-interior.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "center",
+    "developer": "",
+    "tags": "new center",
+    "goals": "life investment",
+    "kind": "new"
+  },
+  {
+    "id": "p014",
+    "title": "Квартира с панорамным видом",
+    "price": 198000,
+    "location": "Аркадия, Одесса",
+    "area": 102,
+    "rooms": 3,
+    "type": "Вторичная недвижимость",
+    "description": "Квартира с панорамным видом. Площадь 102 м², 3 комнаты. Светлые жилые пространства рядом с побережьем. Удобная планировка для отдыха и повседневной жизни у моря.",
+    "photos": [
+      "assets/odessa-hero.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "arkadia",
+    "developer": "",
+    "tags": "resale sea family large",
+    "goals": "life",
+    "kind": "resale"
+  },
+  {
+    "id": "p015",
+    "title": "Просторная квартира для семьи",
+    "price": 265000,
+    "location": "Приморский район, Одесса",
+    "area": 132,
+    "rooms": 4,
+    "type": "Новостройка",
+    "description": "Просторная квартира для семьи. Площадь 132 м², 4 комнаты. Продуманная планировка с просторной гостиной и отдельной зоной отдыха. Подойдёт для жизни в городе и семейных встреч.",
+    "photos": [
+      "assets/modern-interior.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "primorsky",
+    "developer": "",
+    "tags": "new family large",
+    "goals": "life",
+    "kind": "new"
+  },
+  {
+    "id": "p016",
+    "title": "Квартира в городском квартале",
+    "price": 112000,
+    "location": "Центр, Одесса",
+    "area": 74,
+    "rooms": 2,
+    "type": "Вторичная недвижимость",
+    "description": "Квартира в городском квартале. Площадь 74 м², 2 комнаты. Квартира в центральной части Одессы. Просторные комнаты и выразительные детали интерьера создают спокойное городское пространство.",
+    "photos": [
+      "assets/courtyard-building.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "center",
+    "developer": "",
+    "tags": "resale center",
+    "goals": "life investment",
+    "kind": "resale"
+  },
+  {
+    "id": "p017",
+    "title": "Пентхаус у побережья",
+    "price": 395000,
+    "location": "Аркадия, Одесса",
+    "area": 148,
+    "rooms": 4,
+    "type": "Новостройка",
+    "description": "Пентхаус у побережья. Площадь 148 м², 4 комнаты. Светлые жилые пространства рядом с побережьем. Удобная планировка для отдыха и повседневной жизни у моря.",
+    "photos": [
+      "assets/penthouse-terrace.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "arkadia",
+    "developer": "",
+    "tags": "new sea family large penthouse",
+    "goals": "life",
+    "kind": "new"
+  },
+  {
+    "id": "p018",
+    "title": "Квартира с отдельной кухней",
+    "price": 153000,
+    "location": "Приморский район, Одесса",
+    "area": 96,
+    "rooms": 3,
+    "type": "Вторичная недвижимость",
+    "description": "Квартира с отдельной кухней. Площадь 96 м², 3 комнаты. Продуманная планировка с просторной гостиной и отдельной зоной отдыха. Подойдёт для жизни в городе и семейных встреч.",
+    "photos": [
+      "assets/modern-interior.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "primorsky",
+    "developer": "",
+    "tags": "resale family",
+    "goals": "life",
+    "kind": "resale"
+  },
+  {
+    "id": "p019",
+    "title": "Светлая квартира в центре",
+    "price": 138000,
+    "location": "Центр, Одесса",
+    "area": 81,
+    "rooms": 2,
+    "type": "Новостройка",
+    "description": "Светлая квартира в центре. Площадь 81 м², 2 комнаты. Квартира в центральной части Одессы. Просторные комнаты и выразительные детали интерьера создают спокойное городское пространство.",
+    "photos": [
+      "assets/historic-interior.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "center",
+    "developer": "",
+    "tags": "new center",
+    "goals": "life investment",
+    "kind": "new"
+  },
+  {
+    "id": "p020",
+    "title": "Квартира в доме у моря",
+    "price": 147000,
+    "location": "Аркадия, Одесса",
+    "area": 89,
+    "rooms": 2,
+    "type": "Вторичная недвижимость",
+    "description": "Квартира в доме у моря. Площадь 89 м², 2 комнаты. Светлые жилые пространства рядом с побережьем. Удобная планировка для отдыха и повседневной жизни у моря.",
+    "photos": [
+      "assets/new-build.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "arkadia",
+    "developer": "",
+    "tags": "resale sea",
+    "goals": "life investment",
+    "kind": "resale"
+  },
+  {
+    "id": "p021",
+    "title": "Квартира для большой семьи",
+    "price": 285000,
+    "location": "Приморский район, Одесса",
+    "area": 140,
+    "rooms": 4,
+    "type": "Новостройка",
+    "description": "Квартира для большой семьи. Площадь 140 м², 4 комнаты. Продуманная планировка с просторной гостиной и отдельной зоной отдыха. Подойдёт для жизни в городе и семейных встреч.",
+    "photos": [
+      "assets/modern-interior.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "primorsky",
+    "developer": "",
+    "tags": "new family large",
+    "goals": "life",
+    "kind": "new"
+  },
+  {
+    "id": "p022",
+    "title": "Квартира с видом на город",
+    "price": 189000,
+    "location": "Центр, Одесса",
+    "area": 109,
+    "rooms": 3,
+    "type": "Вторичная недвижимость",
+    "description": "Квартира с видом на город. Площадь 109 м², 3 комнаты. Квартира в центральной части Одессы. Просторные комнаты и выразительные детали интерьера создают спокойное городское пространство.",
+    "photos": [
+      "assets/bright-apartment.jpg",
+      "assets/modern-interior.jpg"
+    ],
+    "district": "center",
+    "developer": "",
+    "tags": "resale center family large",
+    "goals": "life",
+    "kind": "resale"
+  },
+  {
+    "id": "p023",
+    "title": "Квартира в новом квартале",
+    "price": 105000,
+    "location": "Приморский район, Одесса",
+    "area": 72,
+    "rooms": 2,
+    "type": "Новостройка",
+    "description": "Квартира в новом квартале. Площадь 72 м², 2 комнаты. Продуманная планировка с просторной гостиной и отдельной зоной отдыха. Подойдёт для жизни в городе и семейных встреч.",
+    "photos": [
+      "assets/courtyard-building.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "primorsky",
+    "developer": "",
+    "tags": "new",
+    "goals": "life investment",
+    "kind": "new"
+  },
+  {
+    "id": "p024",
+    "title": "Квартира с большой террасой",
+    "price": 268000,
+    "location": "Аркадия, Одесса",
+    "area": 121,
+    "rooms": 3,
+    "type": "Вторичная недвижимость",
+    "description": "Квартира с большой террасой. Площадь 121 м², 3 комнаты. Светлые жилые пространства рядом с побережьем. Удобная планировка для отдыха и повседневной жизни у моря.",
+    "photos": [
+      "assets/penthouse-terrace.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "arkadia",
+    "developer": "",
+    "tags": "resale sea family large",
+    "goals": "life",
+    "kind": "resale"
+  },
+  {
+    "id": "p025",
+    "title": "Квартира с просторной столовой",
+    "price": 205000,
+    "location": "Центр, Одесса",
+    "area": 116,
+    "rooms": 3,
+    "type": "Новостройка",
+    "description": "Квартира с просторной столовой. Площадь 116 м², 3 комнаты. Квартира в центральной части Одессы. Просторные комнаты и выразительные детали интерьера создают спокойное городское пространство.",
+    "photos": [
+      "assets/historic-interior.jpg",
+      "assets/bright-apartment.jpg"
+    ],
+    "district": "center",
+    "developer": "",
+    "tags": "new center family large",
+    "goals": "life",
+    "kind": "new"
+  }
+]
