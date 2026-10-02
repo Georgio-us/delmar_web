@@ -4,6 +4,7 @@ class PgRepository {
   async initialize(seed){
     await this.pool.query(`CREATE TABLE IF NOT EXISTS delmar_content (id integer PRIMARY KEY CHECK (id=1), state jsonb NOT NULL, revision integer NOT NULL DEFAULT 1, updated_at timestamptz NOT NULL DEFAULT now());
       CREATE TABLE IF NOT EXISTS delmar_sessions (token_hash text PRIMARY KEY, credential_tag text NOT NULL, expires_at timestamptz NOT NULL);
+      CREATE TABLE IF NOT EXISTS delmar_leads (id uuid PRIMARY KEY, data jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
       CREATE TABLE IF NOT EXISTS delmar_login_limits (key text PRIMARY KEY, attempts integer NOT NULL, expires_at timestamptz NOT NULL);`)
     await this.pool.query('INSERT INTO delmar_content(id,state) VALUES(1,$1::jsonb) ON CONFLICT(id) DO NOTHING',[JSON.stringify(seed)])
   }
@@ -19,6 +20,8 @@ class PgRepository {
     await this.pool.query('DELETE FROM delmar_login_limits WHERE expires_at<now()')
     return rows[0].attempts<=limit
   }
+  async createLead(lead){await this.pool.query('INSERT INTO delmar_leads(id,data) VALUES($1,$2::jsonb)',[lead.id,JSON.stringify(lead)])}
+  async getLeads(){const {rows}=await this.pool.query('SELECT data,created_at FROM delmar_leads ORDER BY created_at DESC LIMIT 100');return rows.map(row=>({...row.data,created_at:row.created_at}))}
   async ping(){await this.pool.query('SELECT 1')}
   async close(){await this.pool.end()}
 }

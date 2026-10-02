@@ -18,6 +18,7 @@ function closeFilterMenus(except = null) {
 }
 function syncFilterMenus() {
   filterControls.forEach((control, select) => {
+    select.closest('label').classList.toggle('is-active-filter',select.value!=='all')
     control.trigger.querySelector('.filter-value').textContent = select.selectedOptions[0].textContent
     control.trigger.setAttribute('aria-label', `${control.name}: ${select.selectedOptions[0].textContent}`)
     control.list.querySelectorAll('button').forEach(option => {
@@ -90,6 +91,7 @@ let visibleCount = 5
 
 function updateCatalog(scroll = false) {
   syncFilterMenus()
+  $('#more-filters').classList.toggle('has-active-filters',rooms.value!=='all')
   $$('[data-goal]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.goal === activeGoal)))
   const matches = cards.filter(card => {
     const amount = Number(card.dataset.price) || null
@@ -127,8 +129,7 @@ function setInterest(value) {
   $('#interest-options').hidden = true
 }
 function routeToContact(interest) {
-  setInterest(interest)
-  $('#contact').scrollIntoView({ behavior: 'smooth', block: 'start' })
+  openLead({source:'service:'+interest,title:interest,interest})
 }
 [district, type, area, rooms, price].forEach(select => select.addEventListener('change', () => { visibleCount = 5; updateCatalog() }))
 $('#reset-filters').addEventListener('click', resetCatalog)
@@ -142,10 +143,9 @@ $$('[data-route]').forEach(button => button.addEventListener('click', () => {
   if (button.dataset.route === 'sell') routeToContact('Продажа квартиры')
   else routeToCatalog(button.dataset.route)
 }))
-$$('.developer-card[data-developer]').forEach(button => button.addEventListener('click', () => routeToCatalog('new', button.dataset.developer)))
-$$('[data-developer-request]').forEach(button => button.addEventListener('click', () => {
-  routeToContact('Новостройка')
-  $('#contact-form [name="message"]').value = `Интересуют объекты застройщика ${button.dataset.developerRequest}`
+$$('.developer-card').forEach(button => button.addEventListener('click', () => {
+  const developer=button.querySelector('strong').textContent.trim()
+  openLead({source:'developer:'+(button.dataset.developer||button.dataset.developerRequest),title:'Запросить объекты: '+developer,interest:'Объекты застройщика',developer,summary:'Оставьте контакты — подготовим подборку объектов застройщика '+developer+'.'})
 }))
 $('#developers-more').addEventListener('click', event => {
   const button = event.currentTarget
@@ -173,7 +173,7 @@ function showQuizStep(step) {
   $('#quiz-back').hidden = step === 1
   const key = step === 1 ? 'choice' : step === 2 ? 'district' : 'rooms'
   $('#quiz-next').disabled = !quizAnswers[key]
-  $('#quiz-next').firstChild.textContent = step === 3 ? 'Показать объекты ' : 'Далее '
+  $('#quiz-next').firstChild.textContent = step === 3 ? 'Оставить контакты ' : 'Далее '
 }
 $('#open-quiz').addEventListener('click', () => {
   quizAnswers.choice = quizAnswers.district = quizAnswers.rooms = null
@@ -186,18 +186,14 @@ $$('[data-quiz-choice], [data-quiz-district], [data-quiz-rooms]').forEach(button
   quizAnswers[key] = button.dataset[`quiz${key[0].toUpperCase()}${key.slice(1)}`]
   $$(`[data-quiz-${key}]`).forEach(item => item.classList.toggle('is-selected', item === button))
   $('#quiz-next').disabled = false
-  if (key === 'choice' && quizAnswers.choice === 'sell') { quiz.close(); routeToContact('Продажа квартиры') }
+  if (key === 'choice' && quizAnswers.choice === 'sell') { quiz.close(); openLead({source:'quiz',title:'Продажа квартиры',interest:'Продажа квартиры',answers:{...quizAnswers},summary:'Оставьте телефон — обсудим продажу вашей квартиры.'}) }
 }))
 $('#quiz-back').addEventListener('click', () => showQuizStep(quizStep - 1))
 $('#quiz-next').addEventListener('click', () => {
   if (quizStep < 3) { showQuizStep(quizStep + 1); return }
   quiz.close()
-  resetCatalog()
-  type.value = quizAnswers.choice
-  district.value = quizAnswers.district || 'all'
-  rooms.value = quizAnswers.rooms || 'all'
-  visibleCount = 5
-  updateCatalog(true)
+  const choice=$(`[data-quiz-choice="${quizAnswers.choice}"]`).textContent.trim(),districtName=$(`[data-quiz-district="${quizAnswers.district}"]`).textContent.trim(),roomName=$(`[data-quiz-rooms="${quizAnswers.rooms}"]`).textContent.trim()
+  openLead({source:'quiz',title:'Получить подборку квартир',interest:'Быстрый опрос',answers:{...quizAnswers},summary:[choice,districtName,roomName].join(' · ')})
 })
 
 const interestTrigger = $('#interest-trigger')
@@ -286,9 +282,29 @@ $('#youtube-link').addEventListener('click', () => openInfo('Видеоблог'
 $$('[data-video]').forEach(button => button.addEventListener('click', () => openInfo(button.dataset.video, 'Видео будет доступно после подключения канала DELMAR GROUP')))
 $$('[data-social]').forEach(button => button.addEventListener('click', () => openInfo(button.dataset.social, 'Ссылка на страницу будет добавлена после согласования')))
 $('.info-dialog .dialog-close').addEventListener('click', () => infoDialog.close())
-$('#contact-form').addEventListener('submit', event => {
-  event.preventDefault()
-  $('#form-status').textContent = 'Спасибо, запрос заполнен - подключим отправку после согласования контактов агентства'
+// One form per action context; only explicitly selected catalog controls filter objects.
+const leadDialog=$('#lead-dialog'),leadForm=$('#lead-form')
+let leadContext=null,leadPreviousOverflow=''
+function openLead(context){
+  leadContext={...context};leadForm.reset();$$('[aria-invalid]',leadForm).forEach(input=>input.removeAttribute('aria-invalid'))
+  $('#lead-title').textContent=context.title;$('#lead-summary').textContent=context.summary||'Оставьте контакты — свяжемся с вами и обсудим запрос.';$('#lead-status').textContent=''
+  if(!leadDialog.open){leadPreviousOverflow=document.body.style.overflow;document.body.style.overflow='hidden';leadDialog.showModal()}
+}
+leadDialog.addEventListener('close',()=>document.body.style.overflow=leadPreviousOverflow)
+async function submitLead(form,status,context){
+  const name=$('[name="name"]',form),phone=$('[name="phone"]',form),message=$('[name="message"]',form)
+  const validName=Boolean(name.value.trim()),validPhone=phone.value.replace(/\D/g,'').length>=7&&phone.value.replace(/\D/g,'').length<=15
+  name.setAttribute('aria-invalid',String(!validName));phone.setAttribute('aria-invalid',String(!validPhone))
+  if(!validName||!validPhone){status.textContent=!validName?'Укажите ваше имя.':'Укажите телефон — от 7 до 15 цифр.';(!validName?name:phone).focus();return}
+  const button=$('[type="submit"]',form);button.disabled=true;status.textContent='Отправляем заявку…'
+  try{await contentRequest('/api/leads',{method:'POST',body:JSON.stringify({...context,name:name.value.trim(),phone:phone.value.trim(),message:message?.value.trim()||''})});status.textContent='Спасибо! Заявка получена. Мы свяжемся с вами.';form.reset()}catch(error){status.textContent=error.message||'Не удалось отправить заявку. Попробуйте ещё раз.'}finally{button.disabled=false}
+}
+leadForm.addEventListener('submit',event=>{event.preventDefault();submitLead(leadForm,$('#lead-status'),leadContext)})
+$('#contact-form').noValidate=true
+$('#contact-form').addEventListener('submit',event=>{event.preventDefault();submitLead(event.currentTarget,$('#form-status'),{source:'contact-form',title:'Форма внизу страницы',interest:$('[name="interest"]',event.currentTarget).value})})
+$$('a[href="#contact"]').filter(link=>!link.closest('.menu-links')&&!link.hasAttribute('data-footer-type')).forEach((link,index)=>{
+ const section=link.closest('section,header,footer,dialog'),source=(section?.id||section?.tagName.toLowerCase()||'page')+':cta:'+index
+ link.addEventListener('click',event=>{event.preventDefault();if(mobileNav.open)setMenuOpen(false);if($('#article-dialog').open)$('#article-dialog').close();openLead({source,sourceLabel:section?.querySelector('h1,h2,h3')?.textContent.trim().replace(/\s+/g,' ')||'Связаться: '+(section?.tagName.toLowerCase()||'страница'),title:link.textContent.trim(),interest:'Подбор недвижимости'})})
 })
 
 if (new URLSearchParams(location.search).get('quiz') === '1') { showQuizStep(1); quiz.showModal() }
@@ -416,20 +432,8 @@ $('#exclusive-open').addEventListener('click', () => openProperty(exclusiveItems
 $('#property-apply').addEventListener('click', () => revealPropertyForm('Заявка по объекту'))
 $('#property-availability').addEventListener('click', () => revealPropertyForm('Уточнить наличие объекта'))
 propertyDialog.addEventListener('close', () => { document.body.style.overflow = previousBodyOverflow })
-propertyForm.addEventListener('submit', event => {
-  event.preventDefault()
-  const name = $('[name="name"]', propertyForm)
-  const phone = $('[name="phone"]', propertyForm)
-  const validName = name.value.trim().length > 0
-  const validPhone = phone.value.replace(/\D/g, '').length >= 7
-  name.setAttribute('aria-invalid', String(!validName)); phone.setAttribute('aria-invalid', String(!validPhone))
-  if (!validName || !validPhone) {
-    $('#property-form-status').textContent = !validName ? 'Укажите ваше имя.' : 'Укажите телефон — не менее 7 цифр.'
-    ;(!validName ? name : phone).focus()
-    return
-  }
-  $('#property-form-status').textContent = `${propertyRequestIntent}: «${currentProperty.title}», ${formatPropertyPrice(currentProperty.price)}. Заявка заполнена. Это демонстрационная форма: отправка в агентство пока не подключена.`
-})
+propertyForm.addEventListener('submit',event=>{event.preventDefault();submitLead(propertyForm,$('#property-form-status'),{source:'property:'+currentProperty.id,propertyId:currentProperty.id,title:propertyRequestIntent,interest:propertyRequestIntent})})
+
 renderExclusive()
 
 document.addEventListener('delmar:content-changed',()=>{cards=$$('.catalog-card');rebuildExclusives();renderExclusive();updateCatalog();if(propertyDialog.open){if(propertyInventory.some(p=>p.id===currentProperty.id))openProperty(currentProperty.id);else propertyDialog.close()}})

@@ -1,4 +1,6 @@
 const http=require('node:http'),path=require('node:path'),fs=require('node:fs/promises')
+const {validateLead}=require('./leads.cjs')
+const {createHash}=require('node:crypto')
 const {validateContent}=require('../content-validation.js')
 const {pipeline}=require('node:stream/promises')
 const {MEDIA_NAME,TYPES,validateUpload}=require('./media.cjs')
@@ -29,6 +31,18 @@ function createApp({repository,auth,seed,production=false,siteURL,media=null}){
         if(['POST','PUT','DELETE','PATCH'].includes(req.method)&&!sameOrigin(req,production,siteURL))return json(res,403,{error:'Запрос должен выполняться с этого сайта.'})
         if(req.method==='GET'&&pathname==='/api/config')return json(res,200,{database:Boolean(repository),editorEnabled:auth.enabled,mediaEnabled:Boolean(media)})
         if(req.method==='GET'&&pathname==='/api/session')return json(res,200,{authenticated:await auth.authenticated(req)})
+        if(req.method==='POST'&&pathname==='/api/leads'){
+          if(!repository)return json(res,503,{error:'Приём заявок временно недоступен. Позвоните нам или повторите позже.'})
+          const data=await readJSON(req,8192),lead=validateLead(data)
+          const ip=(req.headers['x-forwarded-for']||req.socket.remoteAddress||'unknown').split(',').at(-1).trim()
+          if(!await repository.takeLoginAttempt('lead:'+createHash('sha256').update(ip).digest('hex'),10))return json(res,429,{error:'Слишком много заявок. Повторите через 15 минут.'})
+          if(lead.propertyId){const {state}=await repository.getContent();if(!state.properties.some(p=>p.id===lead.propertyId))return json(res,422,{error:'Объект больше не доступен. Обновите страницу.'})}
+          await repository.createLead(lead);return json(res,201,{received:true})
+        }
+        if(req.method==='GET'&&pathname==='/api/editor/leads'){
+          if(!await auth.authenticated(req))return json(res,401,{error:'Войдите в редактор для просмотра заявок.'})
+          return json(res,200,{leads:await repository.getLeads()})
+        }
         if(req.method==='POST'&&pathname==='/api/login'){
           const data=await readJSON(req,4096),ip=(req.headers['x-forwarded-for']||req.socket.remoteAddress||'unknown').split(',').at(-1).trim()
           const result=await auth.signIn(data?.login,data?.password,ip);if(result.cookie)res.setHeader('Set-Cookie',result.cookie);return json(res,result.status,result.error?{error:result.error}:{authenticated:true})

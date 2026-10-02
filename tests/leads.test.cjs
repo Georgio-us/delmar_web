@@ -1,0 +1,25 @@
+const {test}=require('node:test'),assert=require('node:assert/strict')
+const {createApp}=require('../server/app.cjs'),{EditorAuth}=require('../server/auth.cjs'),{MemoryRepository}=require('./memory-repository.cjs')
+const {validateLead}=require('../server/leads.cjs')
+const seed={version:1,properties:require('../server/seed-properties.json'),editorial:require('../server/seed-editorial.cjs')}
+test('leads retain CTA context, require same origin, and are visible only to editors',async t=>{
+ const repository=new MemoryRepository(seed),password='test-only-password-2026',auth=new EditorAuth(repository,{login:'test',password}),server=createApp({repository,auth,seed})
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(()=>new Promise(resolve=>server.close(resolve)))
+ const base='http://127.0.0.1:'+server.address().port
+ const request=(route,method='GET',data,cookie,origin=base)=>fetch(base+route,{method,headers:{Origin:origin,'X-Delmar-Editor':'1','Content-Type':'application/json',...(cookie?{Cookie:cookie}:{})},...(data?{body:JSON.stringify(data)}:{})})
+ const lead={source:'quiz',sourceLabel:'Быстрый опрос',title:'Подборка',name:'Тест',phone:'+380 93 777 77 77',summary:'Новостройка · Приморский · 2 комнаты',answers:{choice:'new',district:'primorsky',rooms:'2'}}
+ assert.equal((await request('/api/leads','POST',lead,null,'https://foreign.example')).status,403)
+ assert.equal((await request('/api/leads','POST',{...lead,phone:'123'})).status,422)
+ assert.equal((await request('/api/leads','POST',lead)).status,201)
+ assert.equal((await request('/api/leads','POST',{...lead,source:'developer:budova',developer:'Будова',answers:{}})).status,201)
+ assert.equal((await request('/api/leads','POST',{...lead,source:'property:p005',propertyId:'p005'})).status,201)
+ assert.equal((await request('/api/leads','POST',{...lead,propertyId:'p999'})).status,422)
+ assert.equal((await request('/api/editor/leads')).status,401)
+ const login=await request('/api/login','POST',{login:'test',password}),cookie=login.headers.get('set-cookie')
+ const result=await (await request('/api/editor/leads','GET',null,cookie)).json()
+ assert.equal(result.leads.length,3);assert.equal(result.leads.find(l=>l.source==='quiz').sourceLabel,'Быстрый опрос');assert.deepEqual(result.leads.find(l=>l.source==='quiz').answers,lead.answers);assert.equal(result.leads.find(l=>l.developer).developer,'Будова')
+ const content=await (await request('/api/content')).json();assert.equal('leads' in content.state,false)
+ for(let i=0;i<6;i++)assert.equal((await request('/api/leads','POST',lead)).status,201)
+ assert.equal((await request('/api/leads','POST',lead)).status,429)
+ assert.throws(()=>validateLead({...lead,answers:{rooms:'100'}}))
+})
