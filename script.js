@@ -87,9 +87,14 @@ document.addEventListener('click', event => {
 syncFilterMenus()
 let activeGoal = 'all'
 let activeDeveloper = 'all'
-let visibleCount = 5
+let visiblePages = 1
+function catalogPageSize() {
+  const columns = getComputedStyle($('.catalog-grid')).gridTemplateColumns.split(' ').length
+  return Math.ceil(5 / columns) * columns
+}
 
 function updateCatalog(scroll = false) {
+  const visibleCount = visiblePages * catalogPageSize()
   syncFilterMenus()
   $('#more-filters').classList.toggle('has-active-filters',rooms.value!=='all')
   $$('[data-goal]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.goal === activeGoal)))
@@ -112,14 +117,14 @@ function updateCatalog(scroll = false) {
 function resetCatalog() {
   district.value = type.value = area.value = rooms.value = price.value = 'all'
   activeDeveloper = activeGoal = 'all'
-  visibleCount = 5
+  visiblePages = 1
   updateCatalog()
 }
 function routeToCatalog(kind, developer = 'all') {
   resetCatalog()
   if (kind === 'new' || kind === 'resale') type.value = kind
   activeDeveloper = developer
-  visibleCount = 5
+  visiblePages = 1
   updateCatalog(true)
 }
 function setInterest(value) {
@@ -131,9 +136,14 @@ function setInterest(value) {
 function routeToContact(interest) {
   openLead({source:'service:'+interest,title:interest,interest})
 }
-[district, type, area, rooms, price].forEach(select => select.addEventListener('change', () => { visibleCount = 5; updateCatalog() }))
+[district, type, area, rooms, price].forEach(select => select.addEventListener('change', () => { visiblePages = 1; updateCatalog() }))
 $('#reset-filters').addEventListener('click', resetCatalog)
-more.addEventListener('click', () => { visibleCount += 5; updateCatalog() })
+more.addEventListener('click', () => { visiblePages += 1; updateCatalog() })
+let catalogResizeFrame
+window.addEventListener('resize', () => {
+  cancelAnimationFrame(catalogResizeFrame)
+  catalogResizeFrame = requestAnimationFrame(() => updateCatalog())
+})
 $$('[data-category]').forEach(button => button.addEventListener('click', () => {
   activeTopCategory = button.dataset.category
   renderTopCards()
@@ -313,7 +323,7 @@ if (new URLSearchParams(location.search).get('quiz') === '1') { showQuizStep(1);
 $$('[data-goal]').forEach(button => button.addEventListener('click', () => {
   if (button.dataset.goal === 'all') resetCatalog()
   activeGoal = button.dataset.goal
-  visibleCount = 5
+  visiblePages = 1
   updateCatalog(true)
 }))
 let exclusiveItems = []
