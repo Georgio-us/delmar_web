@@ -44,6 +44,7 @@
 .direction .service-note{font-family:var(--ui);font-style:normal;font-size:16px;line-height:1.45;transform:none}
 
 /* Common desktop grid and authored navigation controls. */
+.direction .menu-languages{display:none}
 .direction{--wrap:min(1510px,calc(100% - 6vw))}
 .direction .hero--refined .wrap,.direction .featured--refined .wrap{width:var(--wrap)}
 .direction .hero--refined .hero-trust{margin-left:max(3vw,calc((100% - 1510px)/2));width:min(800px,calc(100% - 6vw))}
@@ -95,16 +96,29 @@
 .direction{--wrap:calc(100% - 40px)}
 .direction .hero--refined .hero-trust{margin-left:20px;width:calc(100% - 40px)}
 .direction .featured--refined .wrap,.direction .service-panel{width:calc(100% - 24px)}
-.direction .hero--refined .site-header{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding-top:20px;padding-bottom:6px}
-.direction .header-tools{display:contents}
-.direction .hero--refined .brand{grid-column:1;grid-row:1}
-.direction .language-picker{grid-column:2;grid-row:1;justify-self:end;margin-right:54px}
-.direction .menu-toggle{grid-column:2;grid-row:1;justify-self:end}
-.direction .header-phone{grid-column:1;grid-row:2;font-size:14px;align-self:center}
-.direction .hero--refined .header-contact{grid-column:2;grid-row:2;justify-self:end;min-height:40px;padding:8px 14px;font-size:13px}
-.direction .language-trigger{min-height:40px;padding:8px;gap:5px}
-.direction .language-trigger>svg:last-child{display:none}
-.direction .menu-toggle{width:40px;height:40px;padding:8px}
+/* One mobile header row; language selection lives in the menu. */
+.direction .hero--refined .site-header{display:flex;align-items:center;gap:12px;min-height:80px;padding:18px 0}
+.direction .header-tools{display:flex;gap:8px;flex:none}
+.direction .hero--refined .brand span{font-size:21px;letter-spacing:.12em}
+.direction .hero--refined .brand small{font-size:9px;letter-spacing:.55em;margin-top:5px}
+.direction .header-phone,.direction .language-picker{display:none}
+.direction .hero--refined .header-contact{min-height:44px;padding:8px 12px;font-size:13px;white-space:nowrap}
+.direction .menu-toggle{width:44px;height:44px;padding:9px}
+.direction .hero--refined .hero-layout{padding:40px 0 32px}
+.direction .hero--refined .hero-copy{width:100%;max-width:440px;margin-inline:auto;padding:0;text-align:center}
+.direction .hero--refined h1{font-size:clamp(32px,8.6vw,48px);line-height:1.12;margin-bottom:24px}
+.direction .hero--refined .hero-copy>p{max-width:350px;margin:0 auto 30px;font-size:16px;line-height:1.5}
+.direction .hero--refined .hero-actions{display:flex;flex-direction:column;align-items:center;gap:14px;padding:0;width:100%;max-width:350px;margin-inline:auto}
+.direction .hero--refined .hero-quiz{width:100%;align-items:center}
+.direction .hero--refined .hero-actions .action-button,.direction .hero--refined .hero-actions .quiet-button{box-sizing:border-box;width:100%;min-width:0;min-height:58px;padding:10px 14px;gap:12px;justify-content:space-between;font-size:14px;border-radius:8px}
+.direction .hero--refined .quiz-label{font-size:14px}
+.direction .hero--refined .action-mark{width:32px;height:32px}
+.direction .hero--refined .quiz-time{position:static;margin:10px 0 0;font-size:12px;text-align:center}
+.direction .menu-languages{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:28px;padding-bottom:22px;border-bottom:1px solid #cbd1b833}
+.direction .menu-language-options{display:flex;gap:6px}
+.direction .menu-language-options button{min-height:44px;padding:10px 12px;border:1px solid #cbd1b833;border-radius:6px;background:transparent;color:#f5f5ef;font-size:13px}
+.direction .menu-language-options button[aria-pressed=true]{background:#59634a;border-color:#a5af97}
+.direction .menu-language-options button:focus-visible{outline:2px solid #cbd1b8;outline-offset:3px}
 .direction .site-menu{position:fixed;inset:0;margin:0;width:100%;max-width:none;height:100dvh;max-height:100dvh;padding:22px 20px;border:0;border-radius:0}
 .direction .menu-head{margin-bottom:28px}
 .direction .menu-body{grid-template-columns:1fr;gap:25px}

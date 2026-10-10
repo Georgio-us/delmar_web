@@ -11,6 +11,7 @@ const languagePairs = `
 Жилой дом с благоустроенным двором|Житловий будинок з облаштованим подвір’ям
 Современный жилой дом|Сучасний житловий будинок
 Терраса с видом на море|Тераса з видом на море
+Язык сайта|Мова сайту
 Выбрать язык|Вибрати мову
 Русский|Російська
 Открыть меню|Відкрити меню
@@ -360,7 +361,7 @@ function setSiteLanguage(language) {
   localizeDOM()
 }
 languageTrigger.addEventListener('click',()=>{const open=languageOptions.hidden;languageOptions.hidden=!open;languageTrigger.setAttribute('aria-expanded',String(open))})
-document.querySelectorAll('[data-language]').forEach(button=>button.addEventListener('click',()=>{setSiteLanguage(button.dataset.language);languageTrigger.focus()}))
+document.querySelectorAll('[data-language]').forEach(button=>button.addEventListener('click',()=>{setSiteLanguage(button.dataset.language);(button.closest('.menu-languages') ? button : languageTrigger).focus()}))
 document.addEventListener('click',event=>{if(!event.target.closest('.language-picker')){languageOptions.hidden=true;languageTrigger.setAttribute('aria-expanded','false')}})
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!languageOptions.hidden){languageOptions.hidden=true;languageTrigger.setAttribute('aria-expanded','false');languageTrigger.focus()}})
 setSiteLanguage(currentLanguage)
