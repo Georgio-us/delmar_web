@@ -55,6 +55,7 @@ function renderContentCards(){
     card.querySelector('img').src=p.photos[0]||'assets/property-placeholder.svg';card.querySelector('img').alt=p.title
     card.querySelector('.property-open').dataset.openProperty=p.id;card.querySelector('.property-open').textContent=p.title
     card.querySelector('div>span').textContent=p.type+' · '+p.location
+    const shortLocation=document.createElement('span');shortLocation.className='catalog-mobile-location';shortLocation.textContent=p.location.replace(/[,·]?\s*Одесса\s*$/i,'').trim()||'Одесса';card.querySelector('div').prepend(shortLocation)
     card.querySelector('b').textContent='$'+new Intl.NumberFormat('ru-RU').format(p.price)
     card.querySelector('p').textContent=`${p.area} м² · ${p.rooms} комн.`
     addPropertyTags(card,p);grid.append(card)

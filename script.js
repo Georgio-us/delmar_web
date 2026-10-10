@@ -9,6 +9,10 @@ const rooms = $('#filter-rooms')
 const price = $('#filter-price')
 const more = $('#catalog-more')
 const filterControls = new Map()
+const mobileFilterSummary=document.createElement('div')
+mobileFilterSummary.className='mobile-filter-summary'
+mobileFilterSummary.setAttribute('aria-live','polite')
+$('#catalog-grid').before(mobileFilterSummary)
 function closeFilterMenus(except = null) {
   filterControls.forEach(control => {
     if (control === except) return
@@ -112,6 +116,24 @@ function updateCatalog(scroll = false) {
   $('#catalog-empty').hidden = matches.length > 0
   $('#catalog-empty').textContent = propertyInventory.length ? 'По этим параметрам объектов пока нет - измените фильтры' : 'Объекты скоро появятся — оставьте заявку на подбор'
   more.hidden = matches.length <= visibleCount
+  const selectedFilters=[district,type,price,area,rooms].filter(select=>select.value!=='all')
+  $('#reset-filters').classList.toggle('filters-applied',selectedFilters.length>0||activeGoal!=='all'||activeDeveloper!=='all')
+  mobileFilterSummary.replaceChildren()
+  const count=document.createElement('span');count.className='mobile-result-count';count.textContent='Объектов: '+matches.length;mobileFilterSummary.append(count)
+  for(const select of selectedFilters){
+    const chip=document.createElement('button');chip.type='button';chip.className='mobile-filter-chip'
+    chip.append(document.createTextNode(select.selectedOptions[0].textContent),propertyIcon('close'))
+    chip.lastChild.querySelector('path').setAttribute('d','m6 6 12 12M18 6 6 18')
+    chip.setAttribute('aria-label','Убрать фильтр: '+select.selectedOptions[0].textContent)
+    chip.addEventListener('click',()=>{select.value='all';select.dispatchEvent(new Event('change'))})
+    mobileFilterSummary.append(chip)
+  }
+  if(activeGoal!=='all'){
+    const chip=document.createElement('button');chip.type='button';chip.className='mobile-filter-chip';chip.textContent=activeGoal==='life'?'Для жизни':'Для инвестиций'
+    chip.append(propertyIcon('close'));chip.lastChild.querySelector('path').setAttribute('d','m6 6 12 12M18 6 6 18')
+    chip.setAttribute('aria-label','Убрать фильтр: '+chip.textContent)
+    chip.addEventListener('click',()=>{activeGoal='all';visiblePages=1;updateCatalog()});mobileFilterSummary.append(chip)
+  }
   if (scroll) catalog.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 function resetCatalog() {
@@ -314,7 +336,7 @@ $('#contact-form').noValidate=true
 $('#contact-form').addEventListener('submit',event=>{event.preventDefault();submitLead(event.currentTarget,$('#form-status'),{source:'contact-form',title:'Форма внизу страницы',interest:$('[name="interest"]',event.currentTarget).value})})
 $$('a[href="#contact"]').filter(link=>!link.closest('.menu-links')&&!link.hasAttribute('data-footer-type')).forEach((link,index)=>{
  const section=link.closest('section,header,footer,dialog'),source=(section?.id||section?.tagName.toLowerCase()||'page')+':cta:'+index
- link.addEventListener('click',event=>{event.preventDefault();if(mobileNav.open)setMenuOpen(false);if($('#article-dialog').open)$('#article-dialog').close();openLead({source,sourceLabel:section?.querySelector('h1,h2,h3')?.textContent.trim().replace(/\s+/g,' ')||'Связаться: '+(section?.tagName.toLowerCase()||'страница'),title:link.textContent.trim(),interest:'Подбор недвижимости'})})
+ link.addEventListener('click',event=>{event.preventDefault();if(mobileNav.open)setMenuOpen(false);if($('#article-dialog').open)$('#article-dialog').close();openLead({source,sourceLabel:section?.querySelector('h1,h2,h3')?.textContent.trim().replace(/\s+/g,' ')||'Связаться: '+(section?.tagName.toLowerCase()||'страница'),title:link.innerText.trim(),interest:'Подбор недвижимости'})})
 })
 
 if (new URLSearchParams(location.search).get('quiz') === '1') { showQuizStep(1); quiz.showModal() }
@@ -408,6 +430,18 @@ function openProperty(id) {
   ;[`${property.area} м²`, `${property.rooms} комн.`, `${formatPropertyPrice(unitPrice)} / м²`,...(property.floor!=null?[property.floor+' этаж']:[]),...(property.baths!=null?[property.baths+' ванн.']:[]),...(property.terraceArea?[property.terraceArea+' м² терраса']:[])].forEach(text => {
     const item = document.createElement('span'); item.textContent = text; $('#property-specs').append(item)
   })
+  let mobileFeatures=$('.mobile-property-features',propertyDialog)
+  if(!mobileFeatures){mobileFeatures=document.createElement('div');mobileFeatures.className='mobile-property-features';$('#property-specs').after(mobileFeatures)}
+  mobileFeatures.replaceChildren()
+  const exclusive=exclusiveItems.find(item=>item.propertyId===id)
+  if(exclusive){
+    const display=exclusive.display||defaultExclusiveDisplay(exclusive),seen=new Set()
+    for(const feature of [...display.stats,...display.photoFacts].filter(f=>f.source==='custom')){
+      const value=displayFeatureValue(property,feature),text=[value,feature.label].filter(Boolean).join(' · ')
+      if(!text||seen.has(text))continue;seen.add(text)
+      const row=document.createElement('span');row.append(propertyIcon(feature.icon),document.createTextNode(text));mobileFeatures.append(row)
+    }
+  }
   const thumbs = $('#property-thumbnails'); thumbs.replaceChildren()
   property.photos.forEach((src, index) => {
     const button = document.createElement('button'); button.type = 'button'
@@ -439,6 +473,7 @@ function revealPropertyForm(intent) {
 }
 document.addEventListener('click',event => { const button=event.target.closest('[data-open-property]');if(button)openProperty(button.dataset.openProperty) })
 $('#exclusive-open').addEventListener('click', () => openProperty(exclusiveItems[exclusiveIndex]?.propertyId))
+$('#exclusive-details').addEventListener('click', () => openProperty(exclusiveItems[exclusiveIndex]?.propertyId))
 $('#property-apply').addEventListener('click', () => revealPropertyForm('Заявка по объекту'))
 $('#property-availability').addEventListener('click', () => revealPropertyForm('Уточнить наличие объекта'))
 propertyDialog.addEventListener('close', () => { document.body.style.overflow = previousBodyOverflow })
